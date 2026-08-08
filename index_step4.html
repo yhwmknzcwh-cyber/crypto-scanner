@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Bybit Crypto Scanner - Step 4</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing:border-box; }
+    body{
+      margin:0;background:#0b0f14;color:#f5f7fa;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+    .wrap{max-width:1220px;margin:0 auto;padding:18px}
+    h1{font-size:28px;margin:0 0 6px}
+    .sub{color:#9aa4b2;margin-bottom:16px}
+    .top{
+      display:grid;grid-template-columns:repeat(5,1fr);gap:8px;
+      background:#121821;border:1px solid #263241;border-radius:14px;padding:12px;margin-bottom:14px
+    }
+    .box{font-size:13px;line-height:1.45}
+    .leader{
+      border:1px solid #334155;background:#111827;border-radius:16px;padding:14px;margin-bottom:14px
+    }
+    .leaderGrid{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:10px}
+    .leader .big{font-size:25px;font-weight:850;margin-top:4px}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .coin{
+      background:#121821;border:1px solid #263241;border-radius:16px;padding:15px
+    }
+    .coinHead{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:12px}
+    .symbol{font-size:19px;font-weight:800}
+    .price{font-size:28px;font-weight:800}
+    .change{font-size:13px}
+    .pos{color:#4ade80}.neg{color:#f87171}.neu{color:#cbd5e1}.warn{color:#fbbf24}
+    .scoreRow{
+      display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px
+    }
+    .scoreBox{
+      border:1px solid #2c3949;background:#0d131b;border-radius:12px;padding:10px
+    }
+    .score{font-size:24px;font-weight:850}
+    .badge{
+      display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:850
+    }
+    .wait{background:#263241;color:#cbd5e1}
+    .watch{background:#3a2e0e;color:#fde68a}
+    .ready{background:#12331f;color:#86efac}
+    .cancel{background:#3a1717;color:#fca5a5}
+    .long{color:#4ade80;font-weight:800}
+    .short{color:#f87171;font-weight:800}
+    .tfgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+    .tf{
+      border:1px solid #2c3949;background:#0d131b;border-radius:12px;padding:9px 7px;min-height:165px
+    }
+    .tfname{font-size:13px;font-weight:800;margin-bottom:5px}
+    .tfrow{font-size:11px;color:#aab4c2;line-height:1.47;white-space:nowrap}
+    .trend{
+      display:inline-block;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:800;margin-top:4px
+    }
+    .up{background:#12331f;color:#86efac}
+    .down{background:#3a1717;color:#fca5a5}
+    .mixed{background:#332b12;color:#fde68a}
+    .checks{
+      margin-top:10px;border:1px solid #2c3949;background:#0d131b;border-radius:12px;padding:10px
+    }
+    .checkgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+    .check{font-size:11px;color:#aab4c2}
+    .yes{color:#86efac}.no{color:#fca5a5}.maybe{color:#fde68a}
+    .buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+    button{
+      padding:14px;border:0;border-radius:14px;font-size:16px;font-weight:750;color:white;background:#2563eb
+    }
+    button.secondary{background:#475569}
+    button.stop{background:#7f1d1d}
+    .msg{
+      margin-top:12px;padding:11px;border-radius:12px;display:none;font-size:13px;line-height:1.5
+    }
+    .err{background:#2a1515;color:#fecaca}
+    .good{background:#10251a;color:#bbf7d0}
+    .details{
+      margin-top:14px;background:#121821;border:1px solid #263241;border-radius:14px;padding:12px
+    }
+    .details summary{cursor:pointer;font-weight:700}
+    #log,#signalLog{
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;
+      color:#9aa4b2;white-space:pre-wrap;max-height:240px;overflow:auto;margin-top:8px
+    }
+    .note{margin-top:12px;font-size:12px;color:#8d98a7;line-height:1.55}
+    @media(max-width:900px){
+      .grid{grid-template-columns:1fr}
+      .top{grid-template-columns:repeat(2,1fr)}
+      .leaderGrid{grid-template-columns:repeat(2,1fr)}
+    }
+    @media(max-width:680px){
+      .tfgrid,.checkgrid{grid-template-columns:repeat(2,1fr)}
+      .scoreRow{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Bybit Crypto Scanner</h1>
+  <div class="sub">Step 4 · 데이트레이딩 후보 신호 엔진 (WAIT → WATCH → READY)</div>
+
+  <div class="top">
+    <div class="box"><b>상태</b><br><span id="statusText">대기</span></div>
+    <div class="box"><b>WebSocket</b><br><span id="connText">끊김</span></div>
+    <div class="box"><b>과거봉</b><br><span id="historyText">0 / 20</span></div>
+    <div class="box"><b>신호 엔진</b><br><span id="engineText">대기</span></div>
+    <div class="box"><b>마지막 수신</b><br><span id="lastUpdate">-</span></div>
+  </div>
+
+  <div class="leader">
+    <div class="leaderGrid">
+      <div><b>현재 최고 후보</b><div class="big" id="leaderSymbol">-</div></div>
+      <div><b>방향</b><div class="big" id="leaderDir">-</div></div>
+      <div><b>점수</b><div class="big" id="leaderScore">-</div></div>
+      <div><b>상태</b><div class="big" id="leaderStatus">WAIT</div></div>
+    </div>
+  </div>
+
+  <div class="grid" id="coins"></div>
+
+  <div class="buttons">
+    <button id="startBtn">감시 시작</button>
+    <button class="secondary" id="exportBtn">신호 기록 내보내기</button>
+  </div>
+
+  <div class="msg err" id="errorBox"></div>
+  <div class="msg good" id="okBox"></div>
+
+  <details class="details">
+    <summary>신호 기록 보기</summary>
+    <div id="signalLog"></div>
+  </details>
+
+  <details class="details">
+    <summary>진단 로그 보기</summary>
+    <div id="log"></div>
+  </details>
+
+  <div class="note">
+    Step 4는 실제 주문을 넣지 않습니다. 4H는 방향 필터, 1H는 확인, 15m는 셋업,
+    5m는 트리거, 1m는 타이밍으로 사용합니다. READY는 “즉시 매수/매도”가 아니라
+    차트를 추가 확인할 가치가 높은 후보라는 의미입니다. 상태 변화는 이 아이패드 브라우저의
+    localStorage에 자동 기록됩니다.
+  </div>
+</div>
+
+<script>
+const SYMBOLS=["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT"];
+const TFS=[
+  {key:"1",label:"1m"},
+  {key:"5",label:"5m"},
+  {key:"15",label:"15m"},
+  {key:"60",label:"1H"},
+  {key:"240",label:"4H"}
+];
+const LIMIT=200;
+const SIGNAL_KEY="bybitScannerStep4SignalsV1";
+
+let ws=null,running=false,pingTimer=null,reconnectTimer=null,loadedHistory=0;
+const store={},tickerCache={},lastSignalState={};
+SYMBOLS.forEach(s=>{
+  store[s]={};
+  TFS.forEach(tf=>store[s][tf.key]=[]);
+  lastSignalState[s]="";
+});
+
+function log(msg){
+  const el=document.getElementById("log");
+  const t=new Date().toLocaleTimeString("ko-KR");
+  el.textContent+=`[${t}] ${msg}\n`;
+  el.scrollTop=el.scrollHeight;
+}
+function showErr(msg){const e=document.getElementById("errorBox");e.textContent=msg;e.style.display="block";}
+function clearErr(){document.getElementById("errorBox").style.display="none";}
+function showOk(msg){const e=document.getElementById("okBox");e.textContent=msg;e.style.display="block";setTimeout(()=>e.style.display="none",2800);}
+function fmt(n){
+  if(n===null||n===undefined||n===""||Number.isNaN(Number(n))) return "-";
+  const x=Number(n);
+  if(Math.abs(x)>=1000) return x.toLocaleString(undefined,{maximumFractionDigits:2});
+  if(Math.abs(x)>=1) return x.toLocaleString(undefined,{maximumFractionDigits:4});
+  return x.toLocaleString(undefined,{maximumFractionDigits:6});
+}
+function fmtSmall(n){
+  if(n===null||n===undefined||Number.isNaN(Number(n))) return "-";
+  const x=Number(n);
+  if(Math.abs(x)>=1000) return x.toLocaleString(undefined,{maximumFractionDigits:1});
+  if(Math.abs(x)>=10) return x.toFixed(2);
+  return x.toFixed(4);
+}
+function pctClass(v){return v>0?"pos":v<0?"neg":"neu";}
+
+function makeUI(){
+  document.getElementById("coins").innerHTML=SYMBOLS.map(s=>`
+    <div class="coin">
+      <div class="coinHead">
+        <div>
+          <div class="symbol">${s}</div>
+          <div class="change neu" id="chg-${s}">24h -</div>
+        </div>
+        <div class="price" id="px-${s}">-</div>
+      </div>
+
+      <div class="scoreRow">
+        <div class="scoreBox"><b>후보 점수</b><div class="score" id="score-${s}">0</div></div>
+        <div class="scoreBox"><b>방향</b><div class="score" id="dir-${s}">-</div></div>
+        <div class="scoreBox"><b>상태</b><div style="margin-top:7px"><span id="status-${s}" class="badge wait">WAIT</span></div></div>
+      </div>
+
+      <div class="tfgrid">
+        ${TFS.map(tf=>`
+          <div class="tf">
+            <div class="tfname">${tf.label}</div>
+            <div class="tfrow">C <span id="close-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">MA20 <span id="ma20-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">MA50 <span id="ma50-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">MA200 <span id="ma200-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">MACD <span id="macd-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">ATR14 <span id="atr-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">VOL× <span id="vol-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">구조 <span id="struct-${s}-${tf.key}">-</span></div>
+            <span id="trend-${s}-${tf.key}" class="trend mixed">대기</span>
+          </div>
+        `).join("")}
+      </div>
+
+      <div class="checks">
+        <div class="checkgrid">
+          <div class="check">4H 방향<br><b id="c4h-${s}">-</b></div>
+          <div class="check">1H 확인<br><b id="c1h-${s}">-</b></div>
+          <div class="check">15m 셋업<br><b id="c15-${s}">-</b></div>
+          <div class="check">5m 트리거<br><b id="c5-${s}">-</b></div>
+          <div class="check">1m 타이밍<br><b id="c1-${s}">-</b></div>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+makeUI();
+
+function sma(v,p){
+  if(v.length<p) return null;
+  let s=0; for(let i=v.length-p;i<v.length;i++) s+=v[i];
+  return s/p;
+}
+function emaSeries(v,p){
+  if(v.length<p) return [];
+  const out=new Array(v.length).fill(null),k=2/(p+1);
+  let seed=0; for(let i=0;i<p;i++) seed+=v[i];
+  let prev=seed/p; out[p-1]=prev;
+  for(let i=p;i<v.length;i++){prev=v[i]*k+prev*(1-k);out[i]=prev;}
+  return out;
+}
+function macdCalc(v){
+  if(v.length<35) return null;
+  const e12=emaSeries(v,12),e26=emaSeries(v,26),dense=[];
+  for(let i=0;i<v.length;i++) if(e12[i]!==null&&e26[i]!==null) dense.push(e12[i]-e26[i]);
+  if(dense.length<9) return null;
+  const sig=emaSeries(dense,9),i=dense.length-1;
+  if(sig[i]===null) return null;
+  return {macd:dense[i],signal:sig[i],hist:dense[i]-sig[i]};
+}
+function atrCalc(c,p=14){
+  if(c.length<p+1) return null;
+  const tr=[];
+  for(let i=1;i<c.length;i++){
+    tr.push(Math.max(c[i].high-c[i].low,Math.abs(c[i].high-c[i-1].close),Math.abs(c[i].low-c[i-1].close)));
+  }
+  let atr=tr.slice(0,p).reduce((a,b)=>a+b,0)/p;
+  for(let i=p;i<tr.length;i++) atr=(atr*(p-1)+tr[i])/p;
+  return atr;
+}
+function volumeRatio(c){
+  if(c.length<21) return null;
+  const prev=c.slice(-21,-1).map(x=>x.volume);
+  const avg=prev.reduce((a,b)=>a+b,0)/prev.length;
+  return avg>0?c[c.length-1].volume/avg:null;
+}
+function pivots(c,left=2,right=2){
+  const highs=[],lows=[],end=Math.max(0,c.length-1);
+  for(let i=left;i<end-right;i++){
+    let h=true,l=true;
+    for(let j=i-left;j<=i+right;j++){
+      if(j===i) continue;
+      if(c[j].high>=c[i].high) h=false;
+      if(c[j].low<=c[i].low) l=false;
+    }
+    if(h) highs.push({i,price:c[i].high});
+    if(l) lows.push({i,price:c[i].low});
+  }
+  return {highs,lows};
+}
+function structureCalc(c){
+  const p=pivots(c);
+  if(p.highs.length<2||p.lows.length<2) return {code:"MIX",bias:0};
+  const h1=p.highs.at(-2).price,h2=p.highs.at(-1).price,l1=p.lows.at(-2).price,l2=p.lows.at(-1).price;
+  const hc=h2>h1?"HH":"LH",lc=l2>l1?"HL":"LL";
+  if(hc==="HH"&&lc==="HL") return {code:"HH/HL",bias:1};
+  if(hc==="LH"&&lc==="LL") return {code:"LH/LL",bias:-1};
+  return {code:`${hc}/${lc}`,bias:0};
+}
+function analyze(c){
+  if(c.length<30) return null;
+  const closes=c.map(x=>x.close),close=closes.at(-1);
+  const ma20=sma(closes,20),ma50=sma(closes,50),ma200=sma(closes,200);
+  const macd=macdCalc(closes),atr=atrCalc(c),vr=volumeRatio(c),structure=structureCalc(c);
+  let score=0;
+  if(ma20!==null) score+=close>ma20?1:-1;
+  if(ma50!==null) score+=close>ma50?1:-1;
+  if(ma200!==null) score+=close>ma200?1:-1;
+  if(ma20!==null&&ma50!==null) score+=ma20>ma50?1:-1;
+  if(ma50!==null&&ma200!==null) score+=ma50>ma200?1:-1;
+  if(macd) score+=macd.hist>0?1:-1;
+  score+=structure.bias*2;
+  let trend="MIXED";
+  if(score>=4) trend="UP";
+  else if(score<=-4) trend="DOWN";
+  return {close,ma20,ma50,ma200,macd,atr,vr,structure,score,trend};
+}
+function trendClass(t){return t==="UP"?"up":t==="DOWN"?"down":"mixed";}
+function trendText(t){return t==="UP"?"상승":t==="DOWN"?"하락":"혼조";}
+
+function directionMatch(a,dir){return a && ((dir==="LONG"&&a.trend==="UP")||(dir==="SHORT"&&a.trend==="DOWN"));}
+function notOpposite(a,dir){return a && ((dir==="LONG"&&a.trend!=="DOWN")||(dir==="SHORT"&&a.trend!=="UP"));}
+function momentumMatch(a,dir){
+  if(!a||!a.macd) return false;
+  return dir==="LONG"?a.macd.hist>0:a.macd.hist<0;
+}
+function ma20Match(a,dir){
+  if(!a||a.ma20===null) return false;
+  return dir==="LONG"?a.close>a.ma20:a.close<a.ma20;
+}
+function structureMatch(a,dir){
+  if(!a) return false;
+  return dir==="LONG"?a.structure.bias>=0:a.structure.bias<=0;
+}
+
+function signalCalc(symbol){
+  const a1=analyze(store[symbol]["1"]);
+  const a5=analyze(store[symbol]["5"]);
+  const a15=analyze(store[symbol]["15"]);
+  const a60=analyze(store[symbol]["60"]);
+  const a240=analyze(store[symbol]["240"]);
+  if(!a1||!a5||!a15||!a60||!a240) return null;
+
+  let dir=null;
+  if(a240.trend==="UP"&&a60.trend!=="DOWN") dir="LONG";
+  else if(a240.trend==="DOWN"&&a60.trend!=="UP") dir="SHORT";
+  else if(a240.trend==="MIXED"&&a60.trend==="UP") dir="LONG";
+  else if(a240.trend==="MIXED"&&a60.trend==="DOWN") dir="SHORT";
+
+  if(!dir) return {
+    dir:"-",score:20,status:"WAIT",
+    checks:{h4:false,h1:false,m15:false,m5:false,m1:false}
+  };
+
+  const checks={
+    h4: directionMatch(a240,dir) || (a240.trend==="MIXED" && structureMatch(a240,dir)),
+    h1: directionMatch(a60,dir),
+    m15: notOpposite(a15,dir) && ma20Match(a15,dir),
+    m5: directionMatch(a5,dir) && momentumMatch(a5,dir) && ma20Match(a5,dir),
+    m1: notOpposite(a1,dir) && momentumMatch(a1,dir)
+  };
+
+  let score=0;
+  score += checks.h4?25:0;
+  score += checks.h1?20:0;
+  score += checks.m15?20:0;
+  score += checks.m5?20:0;
+  score += checks.m1?10:0;
+
+  // 거래량 가점: 5m 또는 15m 현재 거래량이 평균의 0.8배 이상
+  const vrGood=(a5.vr!==null&&a5.vr>=0.8)||(a15.vr!==null&&a15.vr>=0.8);
+  if(vrGood) score+=5;
+
+  let status="WAIT";
+  if(score>=80 && checks.h4 && checks.h1 && checks.m15 && checks.m5) status="READY";
+  else if(score>=55 && checks.h4 && (checks.h1||checks.m15)) status="WATCH";
+
+  return {dir,score:Math.min(score,100),status,checks,vrGood};
+}
+
+function renderTF(symbol,interval){
+  const a=analyze(store[symbol][interval]);
+  if(!a) return;
+  document.getElementById(`close-${symbol}-${interval}`).textContent=fmt(a.close);
+  document.getElementById(`ma20-${symbol}-${interval}`).textContent=fmt(a.ma20);
+  document.getElementById(`ma50-${symbol}-${interval}`).textContent=fmt(a.ma50);
+  document.getElementById(`ma200-${symbol}-${interval}`).textContent=fmt(a.ma200);
+  document.getElementById(`macd-${symbol}-${interval}`).textContent=a.macd?fmtSmall(a.macd.hist):"-";
+  document.getElementById(`atr-${symbol}-${interval}`).textContent=fmtSmall(a.atr);
+  document.getElementById(`vol-${symbol}-${interval}`).textContent=a.vr===null?"-":a.vr.toFixed(2);
+  document.getElementById(`struct-${symbol}-${interval}`).textContent=a.structure.code;
+  const e=document.getElementById(`trend-${symbol}-${interval}`);
+  e.className=`trend ${trendClass(a.trend)}`;
+  e.textContent=trendText(a.trend);
+}
+function checkText(v){return v?`<span class="yes">PASS</span>`:`<span class="no">NO</span>`;}
+function statusClass(s){return s==="READY"?"ready":s==="WATCH"?"watch":"wait";}
+
+function renderSignal(symbol){
+  const s=signalCalc(symbol);
+  if(!s) return null;
+  document.getElementById(`score-${symbol}`).textContent=s.score;
+  const d=document.getElementById(`dir-${symbol}`);
+  d.textContent=s.dir;
+  d.className=`score ${s.dir==="LONG"?"long":s.dir==="SHORT"?"short":"neu"}`;
+  const st=document.getElementById(`status-${symbol}`);
+  st.textContent=s.status; st.className=`badge ${statusClass(s.status)}`;
+  document.getElementById(`c4h-${symbol}`).innerHTML=checkText(s.checks.h4);
+  document.getElementById(`c1h-${symbol}`).innerHTML=checkText(s.checks.h1);
+  document.getElementById(`c15-${symbol}`).innerHTML=checkText(s.checks.m15);
+  document.getElementById(`c5-${symbol}`).innerHTML=checkText(s.checks.m5);
+  document.getElementById(`c1-${symbol}`).innerHTML=checkText(s.checks.m1);
+  maybeRecord(symbol,s);
+  return s;
+}
+function renderAll(){
+  let best=null;
+  SYMBOLS.forEach(symbol=>{
+    TFS.forEach(tf=>renderTF(symbol,tf.key));
+    const s=renderSignal(symbol);
+    if(s && (!best||s.score>best.s.score)) best={symbol,s};
+  });
+  if(best){
+    document.getElementById("leaderSymbol").textContent=best.symbol;
+    const de=document.getElementById("leaderDir");
+    de.textContent=best.s.dir; de.className=`big ${best.s.dir==="LONG"?"long":best.s.dir==="SHORT"?"short":"neu"}`;
+    document.getElementById("leaderScore").textContent=best.s.score;
+    document.getElementById("leaderStatus").textContent=best.s.status;
+  }
+  document.getElementById("engineText").textContent="실시간 판정 중";
+}
+
+function getSignals(){
+  try{return JSON.parse(localStorage.getItem(SIGNAL_KEY)||"[]");}catch(e){return [];}
+}
+function saveSignals(arr){
+  try{localStorage.setItem(SIGNAL_KEY,JSON.stringify(arr.slice(-1000)));}catch(e){}
+}
+function maybeRecord(symbol,s){
+  const key=`${s.status}|${s.dir}|${Math.floor(s.score/5)*5}`;
+  if(lastSignalState[symbol]===key) return;
+  lastSignalState[symbol]=key;
+  const rec={
+    ts:new Date().toISOString(),
+    symbol,
+    price:tickerCache[symbol]?.lastPrice ? Number(tickerCache[symbol].lastPrice) : analyze(store[symbol]["1"])?.close,
+    direction:s.dir,
+    score:s.score,
+    status:s.status,
+    checks:s.checks
+  };
+  const arr=getSignals(); arr.push(rec); saveSignals(arr);
+  renderSignalLog();
+}
+function renderSignalLog(){
+  const arr=getSignals().slice(-40).reverse();
+  document.getElementById("signalLog").textContent=arr.map(x=>
+    `${x.ts} | ${x.symbol} | ${x.direction} | ${x.status} | ${x.score} | ${x.price}`
+  ).join("\n") || "아직 기록 없음";
+}
+renderSignalLog();
+
+function renderTicker(symbol,t){
+  tickerCache[symbol]=Object.assign({},tickerCache[symbol]||{},t||{});
+  const x=tickerCache[symbol];
+  if(x.lastPrice!==undefined) document.getElementById(`px-${symbol}`).textContent=fmt(x.lastPrice);
+  if(x.price24hPcnt!==undefined){
+    const p=Number(x.price24hPcnt)*100,e=document.getElementById(`chg-${symbol}`);
+    e.className=`change ${pctClass(p)}`;
+    e.textContent=`24h ${p>=0?"+":""}${p.toFixed(2)}%`;
+  }
+}
+function normalizeRestRow(r){
+  return {start:Number(r[0]),open:Number(r[1]),high:Number(r[2]),low:Number(r[3]),close:Number(r[4]),volume:Number(r[5]),turnover:Number(r[6]||0),confirm:true};
+}
+function normalizeWsRow(r){
+  return {start:Number(r.start),open:Number(r.open),high:Number(r.high),low:Number(r.low),close:Number(r.close),volume:Number(r.volume),turnover:Number(r.turnover||0),confirm:!!r.confirm};
+}
+function upsertCandle(symbol,interval,candle){
+  const arr=store[symbol][interval],idx=arr.findIndex(x=>x.start===candle.start);
+  if(idx>=0) arr[idx]=candle;
+  else{
+    arr.push(candle);arr.sort((a,b)=>a.start-b.start);
+    if(arr.length>LIMIT) arr.splice(0,arr.length-LIMIT);
+  }
+  renderTF(symbol,interval);renderSignal(symbol);updateLeader();
+}
+function updateLeader(){
+  let best=null;
+  SYMBOLS.forEach(symbol=>{
+    const s=signalCalc(symbol);
+    if(s&&(!best||s.score>best.s.score)) best={symbol,s};
+  });
+  if(best){
+    document.getElementById("leaderSymbol").textContent=best.symbol;
+    document.getElementById("leaderDir").textContent=best.s.dir;
+    document.getElementById("leaderScore").textContent=best.s.score;
+    document.getElementById("leaderStatus").textContent=best.s.status;
+  }
+}
+
+async function fetchHistory(symbol,interval){
+  const url=`https://api.bybit.com/v5/market/kline?category=linear&symbol=${symbol}&interval=${interval}&limit=${LIMIT}`;
+  const r=await fetch(url,{cache:"no-store"});
+  if(!r.ok) throw new Error(`${symbol} ${interval} HTTP ${r.status}`);
+  const j=await r.json();
+  if(j.retCode!==0||!j.result||!Array.isArray(j.result.list)) throw new Error(`${symbol} ${interval} retCode=${j.retCode}`);
+  store[symbol][interval]=j.result.list.map(normalizeRestRow).sort((a,b)=>a.start-b.start).slice(-LIMIT);
+  loadedHistory++;
+  document.getElementById("historyText").textContent=`${loadedHistory} / 20`;
+  renderTF(symbol,interval);
+}
+async function loadAllHistory(){
+  loadedHistory=0;
+  const jobs=[];SYMBOLS.forEach(s=>TFS.forEach(tf=>jobs.push({s,tf:tf.key})));
+  for(let i=0;i<jobs.length;i+=4){
+    const b=jobs.slice(i,i+4);
+    const rs=await Promise.allSettled(b.map(x=>fetchHistory(x.s,x.tf)));
+    rs.forEach((r,k)=>{if(r.status==="rejected") log(`과거봉 실패 ${b[k].s} ${b[k].tf}: ${r.reason}`);});
+    await new Promise(res=>setTimeout(res,180));
+  }
+  renderAll();
+  if(loadedHistory===20) showOk("Step 4 데이터와 신호 엔진 준비 완료");
+  else showErr(`과거봉 ${loadedHistory}/20만 로딩됨`);
+}
+
+function connectWS(){
+  if(!running) return;
+  clearErr();
+  document.getElementById("connText").textContent="연결 중";
+  document.getElementById("statusText").textContent="연결 중";
+  ws=new WebSocket("wss://stream.bybit.com/v5/public/linear");
+  ws.onopen=()=>{
+    document.getElementById("connText").textContent="연결됨";
+    document.getElementById("statusText").textContent="감시 중";
+    const topics=[];
+    SYMBOLS.forEach(s=>{
+      topics.push(`tickers.${s}`);
+      TFS.forEach(tf=>topics.push(`kline.${tf.key}.${s}`));
+    });
+    for(let i=0;i<topics.length;i+=10) ws.send(JSON.stringify({op:"subscribe",args:topics.slice(i,i+10)}));
+    pingTimer=setInterval(()=>{if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({op:"ping"}));},20000);
+    log(`WebSocket 구독 ${topics.length}개`);
+  };
+  ws.onmessage=(event)=>{
+    document.getElementById("lastUpdate").textContent=new Date().toLocaleTimeString("ko-KR");
+    let m;try{m=JSON.parse(event.data);}catch(e){return;}
+    if(m.topic?.startsWith("tickers.")&&m.data){
+      const s=m.topic.split(".")[1]; if(SYMBOLS.includes(s)) renderTicker(s,m.data); return;
+    }
+    if(m.topic?.startsWith("kline.")&&Array.isArray(m.data)){
+      const p=m.topic.split("."),interval=p[1],symbol=p[2];
+      if(!SYMBOLS.includes(symbol)) return;
+      m.data.forEach(row=>upsertCandle(symbol,interval,normalizeWsRow(row)));
+    }
+  };
+  ws.onerror=()=>{
+    document.getElementById("connText").textContent="오류";
+    document.getElementById("statusText").textContent="오류";
+    showErr("Bybit WebSocket 오류");
+  };
+  ws.onclose=()=>{
+    if(pingTimer){clearInterval(pingTimer);pingTimer=null;}
+    document.getElementById("connText").textContent="끊김";
+    if(running){
+      document.getElementById("statusText").textContent="재연결 대기";
+      reconnectTimer=setTimeout(connectWS,3000);
+    }else document.getElementById("statusText").textContent="대기";
+  };
+}
+async function start(){
+  if(running) return;
+  running=true;clearErr();
+  const b=document.getElementById("startBtn");b.textContent="감시 중지";b.classList.add("stop");
+  document.getElementById("statusText").textContent="과거봉 로딩";
+  document.getElementById("engineText").textContent="준비 중";
+  log("Step 4 감시 시작");
+  await loadAllHistory();connectWS();
+}
+function stop(){
+  running=false;
+  if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;}
+  if(pingTimer){clearInterval(pingTimer);pingTimer=null;}
+  if(ws){try{ws.close();}catch(e){}ws=null;}
+  const b=document.getElementById("startBtn");b.textContent="감시 시작";b.classList.remove("stop");
+  document.getElementById("statusText").textContent="중지";
+  document.getElementById("connText").textContent="끊김";
+  document.getElementById("engineText").textContent="중지";
+}
+function exportSignals(){
+  const arr=getSignals();
+  const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),signals:arr},null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=`bybit_step4_signals_${new Date().toISOString().replace(/[:.]/g,"-")}.json`;
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+document.getElementById("startBtn").addEventListener("click",()=>running?stop():start());
+document.getElementById("exportBtn").addEventListener("click",exportSignals);
+</script>
+</body>
+</html>
