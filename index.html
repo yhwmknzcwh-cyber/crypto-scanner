@@ -3,215 +3,378 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Bybit Crypto Scanner - Step 1B</title>
+  <title>Bybit Crypto Scanner - Step 2</title>
   <style>
     :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
     body{
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       margin:0;background:#0b0f14;color:#f5f7fa;
     }
-    .wrap{max-width:900px;margin:0 auto;padding:20px}
+    .wrap{max-width:1100px;margin:0 auto;padding:18px}
     h1{font-size:28px;margin:0 0 6px}
-    .sub{color:#9aa4b2;margin-bottom:18px}
-    .status{
-      display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
-      background:#121821;border:1px solid #263241;border-radius:14px;padding:14px;margin-bottom:16px
+    .sub{color:#9aa4b2;margin-bottom:16px}
+    .top{
+      display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+      background:#121821;border:1px solid #263241;border-radius:14px;padding:12px;margin-bottom:14px
     }
-    .status div{font-size:14px}
+    .top .box{font-size:13px;line-height:1.45}
     .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-    .card{
-      background:#121821;border:1px solid #263241;border-radius:16px;padding:16px
+    .coin{
+      background:#121821;border:1px solid #263241;border-radius:16px;padding:15px
     }
-    .symbol{font-size:18px;font-weight:700}
-    .price{font-size:30px;font-weight:800;margin:8px 0}
-    .meta{font-size:14px;color:#9aa4b2;display:grid;gap:4px}
-    .pos{color:#4ade80}.neg{color:#f87171}.flat{color:#cbd5e1}
+    .coinHead{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:12px}
+    .symbol{font-size:19px;font-weight:800}
+    .price{font-size:27px;font-weight:800}
+    .change{font-size:13px}
+    .pos{color:#4ade80}.neg{color:#f87171}.muted{color:#9aa4b2}
+    .tfgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+    .tf{
+      border:1px solid #2c3949;background:#0d131b;border-radius:12px;padding:9px 7px;min-height:92px
+    }
+    .tfname{font-size:13px;font-weight:800;margin-bottom:5px}
+    .tfrow{font-size:11px;color:#aab4c2;line-height:1.45;white-space:nowrap}
+    .ok{color:#4ade80}.warn{color:#fbbf24}.bad{color:#f87171}
     button{
-      width:100%;margin-top:16px;padding:14px;border:0;border-radius:14px;
-      font-size:17px;font-weight:700;background:#2563eb;color:white
+      width:100%;margin-top:14px;padding:14px;border:0;border-radius:14px;
+      font-size:17px;font-weight:750;background:#2563eb;color:white
     }
-    button.stop{background:#374151}
-    .note{
-      margin-top:14px;font-size:13px;color:#9aa4b2;line-height:1.55
+    button.stop{background:#475569}
+    .msg{
+      margin-top:12px;padding:11px;border-radius:12px;display:none;font-size:13px;line-height:1.5
     }
-    .err{
-      margin-top:14px;padding:12px;border-radius:12px;background:#2a1515;color:#fecaca;display:none
+    .err{background:#2a1515;color:#fecaca}
+    .good{background:#10251a;color:#bbf7d0}
+    .details{
+      margin-top:14px;background:#121821;border:1px solid #263241;border-radius:14px;padding:12px
     }
-    .ok{
-      margin-top:14px;padding:12px;border-radius:12px;background:#10251a;color:#bbf7d0;display:none
-    }
-    @media (max-width:700px){
+    .details summary{cursor:pointer;font-weight:700}
+    #log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#9aa4b2;white-space:pre-wrap;max-height:210px;overflow:auto;margin-top:8px}
+    .note{margin-top:12px;font-size:12px;color:#8d98a7;line-height:1.55}
+    @media(max-width:850px){
       .grid{grid-template-columns:1fr}
-      .status{grid-template-columns:1fr}
+      .top{grid-template-columns:repeat(2,1fr)}
+    }
+    @media(max-width:620px){
+      .tfgrid{grid-template-columns:repeat(2,1fr)}
     }
   </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Bybit Crypto Scanner</h1>
-  <div class="sub">Step 1B · WebSocket 실시간 감시</div>
+  <div class="sub">Step 2 · 4종목 × 5개 시간봉 OHLCV 자동 수집</div>
 
-  <div class="status">
-    <div><b>상태:</b> <span id="statusText">대기</span></div>
-    <div><b>마지막 수신:</b> <span id="lastUpdate">-</span></div>
-    <div><b>연결:</b> <span id="connText">끊김</span></div>
+  <div class="top">
+    <div class="box"><b>상태</b><br><span id="statusText">대기</span></div>
+    <div class="box"><b>WebSocket</b><br><span id="connText">끊김</span></div>
+    <div class="box"><b>과거봉 로딩</b><br><span id="historyText">0 / 20</span></div>
+    <div class="box"><b>마지막 수신</b><br><span id="lastUpdate">-</span></div>
   </div>
 
-  <div class="grid" id="cards"></div>
+  <div class="grid" id="coins"></div>
 
   <button id="startBtn">감시 시작</button>
-  <div class="err" id="errorBox"></div>
-  <div class="ok" id="okBox"></div>
+  <div class="msg err" id="errorBox"></div>
+  <div class="msg good" id="okBox"></div>
+
+  <details class="details">
+    <summary>진단 로그 보기</summary>
+    <div id="log"></div>
+  </details>
 
   <div class="note">
-    이 버전은 Bybit 공개 WebSocket 시세만 읽습니다. 로그인·API 키·주문 권한이 필요하지 않습니다.
-    감시 시작 후 BTC/ETH/SOL/XRP 가격이 수 초 안에 표시되면 정상입니다.
+    수집 대상: BTCUSDT / ETHUSDT / SOLUSDT / XRPUSDT, 시간봉: 1분·5분·15분·1시간·4시간.
+    시작 시 각 시간봉의 최근 200개 과거 캔들을 불러오고, 이후 Bybit WebSocket으로 현재 캔들을 계속 갱신합니다.
+    주문·로그인·API 키는 사용하지 않습니다.
   </div>
 </div>
 
 <script>
-const symbols = ["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT"];
+const SYMBOLS = ["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT"];
+const TFS = [
+  {key:"1", label:"1m"},
+  {key:"5", label:"5m"},
+  {key:"15", label:"15m"},
+  {key:"60", label:"1H"},
+  {key:"240", label:"4H"}
+];
+const LIMIT = 200;
+
 let ws = null;
 let running = false;
 let pingTimer = null;
-const cache = {};
+let reconnectTimer = null;
+let loadedHistory = 0;
 
+const store = {};
+const tickerCache = {};
+SYMBOLS.forEach(s=>{
+  store[s] = {};
+  TFS.forEach(tf=>store[s][tf.key] = []);
+});
+
+function log(msg){
+  const el = document.getElementById("log");
+  const t = new Date().toLocaleTimeString("ko-KR");
+  el.textContent += `[${t}] ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+function showErr(msg){
+  const el=document.getElementById("errorBox");
+  el.textContent=msg; el.style.display="block";
+}
+function clearErr(){ document.getElementById("errorBox").style.display="none"; }
+function showOk(msg){
+  const el=document.getElementById("okBox");
+  el.textContent=msg; el.style.display="block";
+  setTimeout(()=>el.style.display="none",3000);
+}
 function fmt(n){
-  if(n === null || n === undefined || n === "" || isNaN(Number(n))) return "-";
-  const x = Number(n);
-  if(x >= 1000) return x.toLocaleString(undefined,{maximumFractionDigits:2});
-  if(x >= 1) return x.toLocaleString(undefined,{maximumFractionDigits:4});
+  if(n===null||n===undefined||n===""||Number.isNaN(Number(n))) return "-";
+  const x=Number(n);
+  if(x>=1000) return x.toLocaleString(undefined,{maximumFractionDigits:2});
+  if(x>=1) return x.toLocaleString(undefined,{maximumFractionDigits:4});
   return x.toLocaleString(undefined,{maximumFractionDigits:6});
 }
-function pctClass(v){
-  if(v > 0) return "pos";
-  if(v < 0) return "neg";
-  return "flat";
+function fmtVol(n){
+  if(n===null||n===undefined||Number.isNaN(Number(n))) return "-";
+  const x=Number(n);
+  if(x>=1e9) return (x/1e9).toFixed(2)+"B";
+  if(x>=1e6) return (x/1e6).toFixed(2)+"M";
+  if(x>=1e3) return (x/1e3).toFixed(2)+"K";
+  return x.toFixed(2);
 }
-function renderEmpty(){
-  const c = document.getElementById("cards");
-  c.innerHTML = symbols.map(s => `
-    <div class="card" id="card-${s}">
-      <div class="symbol">${s}</div>
-      <div class="price">-</div>
-      <div class="meta">
-        <div>24h 변화: -</div>
-        <div>24h 고가: -</div>
-        <div>24h 저가: -</div>
-        <div>24h 거래대금: -</div>
+function pctClass(v){ return v>0?"pos":v<0?"neg":"muted"; }
+
+function makeUI(){
+  document.getElementById("coins").innerHTML = SYMBOLS.map(s=>`
+    <div class="coin">
+      <div class="coinHead">
+        <div>
+          <div class="symbol">${s}</div>
+          <div class="change muted" id="chg-${s}">24h -</div>
+        </div>
+        <div class="price" id="px-${s}">-</div>
       </div>
-    </div>`).join("");
+      <div class="tfgrid">
+        ${TFS.map(tf=>`
+          <div class="tf">
+            <div class="tfname">${tf.label}</div>
+            <div class="tfrow">봉: <span id="cnt-${s}-${tf.key}">0</span>/200</div>
+            <div class="tfrow">O: <span id="o-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">H: <span id="h-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">L: <span id="l-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">C: <span id="c-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">V: <span id="v-${s}-${tf.key}">-</span></div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
 }
-renderEmpty();
+makeUI();
 
-function mergeTicker(symbol, data){
-  cache[symbol] = Object.assign({}, cache[symbol] || {}, data || {});
-  const t = cache[symbol];
-  const card = document.getElementById(`card-${symbol}`);
-  const pct = t.price24hPcnt !== undefined ? Number(t.price24hPcnt) * 100 : null;
-  const turnover = t.turnover24h !== undefined ? Number(t.turnover24h) : null;
-
-  card.innerHTML = `
-    <div class="symbol">${symbol}</div>
-    <div class="price">${fmt(t.lastPrice)}</div>
-    <div class="meta">
-      <div>24h 변화: ${pct === null ? "-" : `<span class="${pctClass(pct)}">${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%</span>`}</div>
-      <div>24h 고가: ${fmt(t.highPrice24h)}</div>
-      <div>24h 저가: ${fmt(t.lowPrice24h)}</div>
-      <div>24h 거래대금: ${turnover ? turnover.toLocaleString(undefined,{maximumFractionDigits:0}) : "-"}</div>
-    </div>`;
+function renderTF(symbol, interval){
+  const arr = store[symbol][interval];
+  const last = arr[arr.length-1];
+  document.getElementById(`cnt-${symbol}-${interval}`).textContent = Math.min(arr.length,LIMIT);
+  if(!last) return;
+  document.getElementById(`o-${symbol}-${interval}`).textContent=fmt(last.open);
+  document.getElementById(`h-${symbol}-${interval}`).textContent=fmt(last.high);
+  document.getElementById(`l-${symbol}-${interval}`).textContent=fmt(last.low);
+  document.getElementById(`c-${symbol}-${interval}`).textContent=fmt(last.close);
+  document.getElementById(`v-${symbol}-${interval}`).textContent=fmtVol(last.volume);
+}
+function renderTicker(symbol, t){
+  tickerCache[symbol] = Object.assign({},tickerCache[symbol]||{},t||{});
+  const x=tickerCache[symbol];
+  if(x.lastPrice!==undefined) document.getElementById(`px-${symbol}`).textContent=fmt(x.lastPrice);
+  if(x.price24hPcnt!==undefined){
+    const p=Number(x.price24hPcnt)*100;
+    const el=document.getElementById(`chg-${symbol}`);
+    el.className=`change ${pctClass(p)}`;
+    el.textContent=`24h ${p>=0?"+":""}${p.toFixed(2)}%`;
+  }
 }
 
-function showError(msg){
-  const box = document.getElementById("errorBox");
-  box.textContent = msg;
-  box.style.display = "block";
+function normalizeRestRow(row){
+  return {
+    start:Number(row[0]),
+    open:Number(row[1]),
+    high:Number(row[2]),
+    low:Number(row[3]),
+    close:Number(row[4]),
+    volume:Number(row[5]),
+    turnover:Number(row[6]||0),
+    confirm:true
+  };
 }
-function clearError(){
-  document.getElementById("errorBox").style.display = "none";
+function normalizeWsRow(row){
+  return {
+    start:Number(row.start),
+    open:Number(row.open),
+    high:Number(row.high),
+    low:Number(row.low),
+    close:Number(row.close),
+    volume:Number(row.volume),
+    turnover:Number(row.turnover||0),
+    confirm:!!row.confirm
+  };
 }
-function showOk(msg){
-  const box = document.getElementById("okBox");
-  box.textContent = msg;
-  box.style.display = "block";
-  setTimeout(()=>box.style.display="none", 3500);
+function upsertCandle(symbol, interval, candle){
+  const arr=store[symbol][interval];
+  const idx=arr.findIndex(x=>x.start===candle.start);
+  if(idx>=0) arr[idx]=candle;
+  else {
+    arr.push(candle);
+    arr.sort((a,b)=>a.start-b.start);
+    if(arr.length>LIMIT) arr.splice(0,arr.length-LIMIT);
+  }
+  renderTF(symbol,interval);
 }
 
-function connect(){
-  clearError();
-  document.getElementById("statusText").textContent = "연결 중";
-  document.getElementById("connText").textContent = "연결 중";
+async function fetchHistory(symbol, interval){
+  const url=`https://api.bybit.com/v5/market/kline?category=linear&symbol=${symbol}&interval=${interval}&limit=${LIMIT}`;
+  const r=await fetch(url,{cache:"no-store"});
+  if(!r.ok) throw new Error(`${symbol} ${interval} HTTP ${r.status}`);
+  const j=await r.json();
+  if(j.retCode!==0 || !j.result || !Array.isArray(j.result.list)) {
+    throw new Error(`${symbol} ${interval} retCode=${j.retCode}`);
+  }
+  const rows=j.result.list.map(normalizeRestRow).sort((a,b)=>a.start-b.start);
+  store[symbol][interval]=rows.slice(-LIMIT);
+  renderTF(symbol,interval);
+  loadedHistory++;
+  document.getElementById("historyText").textContent=`${loadedHistory} / ${SYMBOLS.length*TFS.length}`;
+  log(`과거봉 OK ${symbol} ${interval} (${rows.length})`);
+}
 
-  try {
-    ws = new WebSocket("wss://stream.bybit.com/v5/public/linear");
-  } catch(e) {
-    showError("WebSocket 시작 실패: " + e.message);
-    return;
+async function loadAllHistory(){
+  loadedHistory=0;
+  document.getElementById("historyText").textContent="0 / 20";
+  const jobs=[];
+  for(const s of SYMBOLS){
+    for(const tf of TFS) jobs.push({s,tf:tf.key});
   }
 
-  ws.onopen = () => {
-    document.getElementById("statusText").textContent = "감시 중";
-    document.getElementById("connText").textContent = "연결됨";
-    ws.send(JSON.stringify({
-      op: "subscribe",
-      args: symbols.map(s => "tickers." + s)
-    }));
-    showOk("Bybit 연결 성공");
-    pingTimer = setInterval(()=>{
-      if(ws && ws.readyState === WebSocket.OPEN){
+  // 과도한 동시 요청을 피하기 위해 4개씩 순차 처리
+  for(let i=0;i<jobs.length;i+=4){
+    const batch=jobs.slice(i,i+4);
+    const results=await Promise.allSettled(batch.map(x=>fetchHistory(x.s,x.tf)));
+    results.forEach((r,k)=>{
+      if(r.status==="rejected"){
+        const x=batch[k];
+        log(`과거봉 실패 ${x.s} ${x.tf}: ${r.reason}`);
+      }
+    });
+    await new Promise(res=>setTimeout(res,180));
+  }
+  if(loadedHistory===20) showOk("20개 시간봉 과거 데이터 로딩 완료");
+  else showErr(`과거봉 ${loadedHistory}/20만 로딩되었습니다. 진단 로그를 확인하세요.`);
+}
+
+function connectWS(){
+  if(!running) return;
+  clearErr();
+  document.getElementById("connText").textContent="연결 중";
+  document.getElementById("statusText").textContent="연결 중";
+  log("WebSocket 연결 시작");
+
+  ws=new WebSocket("wss://stream.bybit.com/v5/public/linear");
+
+  ws.onopen=()=>{
+    document.getElementById("connText").textContent="연결됨";
+    document.getElementById("statusText").textContent="감시 중";
+
+    const topics=[];
+    SYMBOLS.forEach(s=>{
+      topics.push(`tickers.${s}`);
+      TFS.forEach(tf=>topics.push(`kline.${tf.key}.${s}`));
+    });
+
+    // Bybit 문서 권장 방식에 맞춰 작은 묶음으로 구독
+    const chunkSize=10;
+    for(let i=0;i<topics.length;i+=chunkSize){
+      ws.send(JSON.stringify({op:"subscribe",args:topics.slice(i,i+chunkSize)}));
+    }
+    log(`구독 요청 ${topics.length}개 topic`);
+
+    pingTimer=setInterval(()=>{
+      if(ws && ws.readyState===WebSocket.OPEN){
         ws.send(JSON.stringify({op:"ping"}));
       }
-    }, 20000);
+    },20000);
   };
 
-  ws.onmessage = (event) => {
-    document.getElementById("lastUpdate").textContent = new Date().toLocaleTimeString("ko-KR");
-    let msg;
-    try { msg = JSON.parse(event.data); } catch(e) { return; }
-    if(!msg || !msg.topic || !msg.data) return;
-    if(!msg.topic.startsWith("tickers.")) return;
-    const symbol = msg.topic.split(".")[1];
-    if(symbols.includes(symbol)){
-      mergeTicker(symbol, msg.data);
+  ws.onmessage=(event)=>{
+    document.getElementById("lastUpdate").textContent=new Date().toLocaleTimeString("ko-KR");
+    let m;
+    try{m=JSON.parse(event.data);}catch(e){return;}
+
+    if(m.topic && m.topic.startsWith("tickers.") && m.data){
+      const symbol=m.topic.split(".")[1];
+      if(SYMBOLS.includes(symbol)) renderTicker(symbol,m.data);
+      return;
+    }
+
+    if(m.topic && m.topic.startsWith("kline.") && Array.isArray(m.data)){
+      const parts=m.topic.split(".");
+      const interval=parts[1];
+      const symbol=parts[2];
+      if(!SYMBOLS.includes(symbol) || !TFS.some(x=>x.key===interval)) return;
+      m.data.forEach(row=>upsertCandle(symbol,interval,normalizeWsRow(row)));
+      return;
     }
   };
 
-  ws.onerror = () => {
-    document.getElementById("statusText").textContent = "오류";
-    document.getElementById("connText").textContent = "오류";
-    showError("Bybit 연결 중 오류가 발생했습니다. Safari에서 인터넷 연결을 확인한 뒤 다시 눌러주세요.");
+  ws.onerror=()=>{
+    document.getElementById("connText").textContent="오류";
+    document.getElementById("statusText").textContent="오류";
+    log("WebSocket 오류");
+    showErr("Bybit WebSocket 오류가 발생했습니다.");
   };
 
-  ws.onclose = () => {
-    document.getElementById("connText").textContent = "끊김";
-    if(pingTimer){ clearInterval(pingTimer); pingTimer = null; }
+  ws.onclose=()=>{
+    if(pingTimer){clearInterval(pingTimer);pingTimer=null;}
+    document.getElementById("connText").textContent="끊김";
+    log("WebSocket 끊김");
     if(running){
-      document.getElementById("statusText").textContent = "재연결 중";
-      setTimeout(connect, 3000);
-    }else{
-      document.getElementById("statusText").textContent = "대기";
+      document.getElementById("statusText").textContent="재연결 대기";
+      reconnectTimer=setTimeout(connectWS,3000);
+    } else {
+      document.getElementById("statusText").textContent="대기";
     }
   };
 }
 
-function startStop(){
-  if(!running){
-    running = true;
-    document.getElementById("startBtn").textContent = "감시 중지";
-    document.getElementById("startBtn").classList.add("stop");
-    connect();
-  }else{
-    running = false;
-    document.getElementById("startBtn").textContent = "감시 시작";
-    document.getElementById("startBtn").classList.remove("stop");
-    if(pingTimer){ clearInterval(pingTimer); pingTimer = null; }
-    if(ws){ try{ ws.close(); }catch(e){} ws = null; }
-    document.getElementById("statusText").textContent = "대기";
-    document.getElementById("connText").textContent = "끊김";
-  }
+async function start(){
+  if(running) return;
+  running=true;
+  clearErr();
+  document.getElementById("startBtn").textContent="감시 중지";
+  document.getElementById("startBtn").classList.add("stop");
+  document.getElementById("statusText").textContent="과거봉 로딩";
+  log("감시 시작");
+  await loadAllHistory();
+  connectWS();
 }
 
-document.getElementById("startBtn").addEventListener("click", startStop);
+function stop(){
+  running=false;
+  if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;}
+  if(pingTimer){clearInterval(pingTimer);pingTimer=null;}
+  if(ws){try{ws.close();}catch(e){} ws=null;}
+  document.getElementById("startBtn").textContent="감시 시작";
+  document.getElementById("startBtn").classList.remove("stop");
+  document.getElementById("statusText").textContent="중지";
+  document.getElementById("connText").textContent="끊김";
+  log("감시 중지");
+}
+
+document.getElementById("startBtn").addEventListener("click",()=>{
+  if(running) stop(); else start();
+});
 </script>
 </body>
 </html>
