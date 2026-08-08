@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Bybit Crypto Scanner - Step 3</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      margin:0;background:#0b0f14;color:#f5f7fa;
+    }
+    .wrap{max-width:1180px;margin:0 auto;padding:18px}
+    h1{font-size:28px;margin:0 0 6px}
+    .sub{color:#9aa4b2;margin-bottom:16px}
+    .top{
+      display:grid;grid-template-columns:repeat(5,1fr);gap:8px;
+      background:#121821;border:1px solid #263241;border-radius:14px;padding:12px;margin-bottom:14px
+    }
+    .top .box{font-size:13px;line-height:1.45}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .coin{
+      background:#121821;border:1px solid #263241;border-radius:16px;padding:15px
+    }
+    .coinHead{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:12px}
+    .symbol{font-size:19px;font-weight:800}
+    .price{font-size:28px;font-weight:800}
+    .change{font-size:13px}
+    .pos{color:#4ade80}.neg{color:#f87171}.neu{color:#cbd5e1}.warn{color:#fbbf24}
+    .summary{
+      display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px
+    }
+    .tf{
+      border:1px solid #2c3949;background:#0d131b;border-radius:12px;padding:9px 7px;min-height:178px
+    }
+    .tfname{font-size:13px;font-weight:800;margin-bottom:6px}
+    .tfrow{font-size:11px;color:#aab4c2;line-height:1.48;white-space:nowrap}
+    .trend{
+      display:inline-block;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:800;margin-top:3px
+    }
+    .up{background:#12331f;color:#86efac}
+    .down{background:#3a1717;color:#fca5a5}
+    .mixed{background:#332b12;color:#fde68a}
+    .overall{
+      margin-top:10px;padding:10px;border:1px solid #2c3949;border-radius:12px;background:#0d131b;
+      display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:12px
+    }
+    button{
+      width:100%;margin-top:14px;padding:14px;border:0;border-radius:14px;
+      font-size:17px;font-weight:750;background:#2563eb;color:white
+    }
+    button.stop{background:#475569}
+    .msg{
+      margin-top:12px;padding:11px;border-radius:12px;display:none;font-size:13px;line-height:1.5
+    }
+    .err{background:#2a1515;color:#fecaca}
+    .good{background:#10251a;color:#bbf7d0}
+    .details{
+      margin-top:14px;background:#121821;border:1px solid #263241;border-radius:14px;padding:12px
+    }
+    .details summary{cursor:pointer;font-weight:700}
+    #log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#9aa4b2;white-space:pre-wrap;max-height:220px;overflow:auto;margin-top:8px}
+    .note{margin-top:12px;font-size:12px;color:#8d98a7;line-height:1.55}
+    @media(max-width:900px){
+      .grid{grid-template-columns:1fr}
+      .top{grid-template-columns:repeat(2,1fr)}
+    }
+    @media(max-width:680px){
+      .summary{grid-template-columns:repeat(2,1fr)}
+      .overall{grid-template-columns:repeat(2,1fr)}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Bybit Crypto Scanner</h1>
+  <div class="sub">Step 3 · 멀티타임프레임 기술분석 엔진</div>
+
+  <div class="top">
+    <div class="box"><b>상태</b><br><span id="statusText">대기</span></div>
+    <div class="box"><b>WebSocket</b><br><span id="connText">끊김</span></div>
+    <div class="box"><b>과거봉</b><br><span id="historyText">0 / 20</span></div>
+    <div class="box"><b>분석 계산</b><br><span id="calcText">대기</span></div>
+    <div class="box"><b>마지막 수신</b><br><span id="lastUpdate">-</span></div>
+  </div>
+
+  <div class="grid" id="coins"></div>
+
+  <button id="startBtn">감시 시작</button>
+  <div class="msg err" id="errorBox"></div>
+  <div class="msg good" id="okBox"></div>
+
+  <details class="details">
+    <summary>진단 로그 보기</summary>
+    <div id="log"></div>
+  </details>
+
+  <div class="note">
+    계산 항목: MA20/50/200, MACD(12,26,9), ATR(14), 최근 거래량 대비 20봉 평균 거래량 비율,
+    최근 확정 스윙 고점·저점으로 계산한 HH/HL/LH/LL 구조. 현재 진행 중인 캔들도 실시간 갱신되지만,
+    시장구조는 노이즈를 줄이기 위해 확정된 과거 봉을 중심으로 계산합니다. 이 단계는 분석 표시까지이며 주문 기능은 없습니다.
+  </div>
+</div>
+
+<script>
+const SYMBOLS = ["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT"];
+const TFS = [
+  {key:"1", label:"1m"},
+  {key:"5", label:"5m"},
+  {key:"15", label:"15m"},
+  {key:"60", label:"1H"},
+  {key:"240", label:"4H"}
+];
+const LIMIT = 200;
+
+let ws=null, running=false, pingTimer=null, reconnectTimer=null, loadedHistory=0;
+const store={}, tickerCache={};
+SYMBOLS.forEach(s=>{
+  store[s]={};
+  TFS.forEach(tf=>store[s][tf.key]=[]);
+});
+
+function log(msg){
+  const el=document.getElementById("log");
+  const t=new Date().toLocaleTimeString("ko-KR");
+  el.textContent += `[${t}] ${msg}\n`;
+  el.scrollTop=el.scrollHeight;
+}
+function showErr(msg){
+  const el=document.getElementById("errorBox");
+  el.textContent=msg; el.style.display="block";
+}
+function clearErr(){ document.getElementById("errorBox").style.display="none"; }
+function showOk(msg){
+  const el=document.getElementById("okBox");
+  el.textContent=msg; el.style.display="block";
+  setTimeout(()=>el.style.display="none",2800);
+}
+function fmt(n){
+  if(n===null||n===undefined||n===""||Number.isNaN(Number(n))) return "-";
+  const x=Number(n);
+  if(Math.abs(x)>=1000) return x.toLocaleString(undefined,{maximumFractionDigits:2});
+  if(Math.abs(x)>=1) return x.toLocaleString(undefined,{maximumFractionDigits:4});
+  return x.toLocaleString(undefined,{maximumFractionDigits:6});
+}
+function fmtSmall(n){
+  if(n===null||n===undefined||Number.isNaN(Number(n))) return "-";
+  const x=Number(n);
+  if(Math.abs(x)>=1000) return x.toLocaleString(undefined,{maximumFractionDigits:1});
+  if(Math.abs(x)>=10) return x.toFixed(2);
+  return x.toFixed(4);
+}
+function pctClass(v){ return v>0?"pos":v<0?"neg":"neu"; }
+
+function makeUI(){
+  document.getElementById("coins").innerHTML=SYMBOLS.map(s=>`
+    <div class="coin">
+      <div class="coinHead">
+        <div>
+          <div class="symbol">${s}</div>
+          <div class="change neu" id="chg-${s}">24h -</div>
+        </div>
+        <div class="price" id="px-${s}">-</div>
+      </div>
+
+      <div class="summary">
+        ${TFS.map(tf=>`
+          <div class="tf">
+            <div class="tfname">${tf.label}</div>
+            <div class="tfrow">봉 <span id="cnt-${s}-${tf.key}">0</span>/200</div>
+            <div class="tfrow">C <span id="close-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">MA20 <span id="ma20-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">MA50 <span id="ma50-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">MA200 <span id="ma200-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">MACD <span id="macd-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">ATR14 <span id="atr-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">VOL× <span id="vol-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">구조 <span id="struct-${s}-${tf.key}">-</span></div>
+            <span id="trend-${s}-${tf.key}" class="trend mixed">대기</span>
+          </div>
+        `).join("")}
+      </div>
+
+      <div class="overall">
+        <div><b>상승 TF</b><br><span id="ups-${s}">0/5</span></div>
+        <div><b>하락 TF</b><br><span id="downs-${s}">0/5</span></div>
+        <div><b>4H/1H 정렬</b><br><span id="align-${s}">-</span></div>
+        <div><b>현재 상태</b><br><span id="state-${s}">분석 대기</span></div>
+      </div>
+    </div>
+  `).join("");
+}
+makeUI();
+
+function sma(values, period){
+  if(values.length<period) return null;
+  let sum=0;
+  for(let i=values.length-period;i<values.length;i++) sum += values[i];
+  return sum/period;
+}
+function emaSeries(values, period){
+  if(values.length<period) return [];
+  const k=2/(period+1);
+  const out=new Array(values.length).fill(null);
+  let seed=0;
+  for(let i=0;i<period;i++) seed+=values[i];
+  let prev=seed/period;
+  out[period-1]=prev;
+  for(let i=period;i<values.length;i++){
+    prev=values[i]*k + prev*(1-k);
+    out[i]=prev;
+  }
+  return out;
+}
+function macdCalc(values){
+  if(values.length<35) return null;
+  const e12=emaSeries(values,12);
+  const e26=emaSeries(values,26);
+  const macdArr=new Array(values.length).fill(null);
+  const dense=[];
+  const denseIndex=[];
+  for(let i=0;i<values.length;i++){
+    if(e12[i]!==null && e26[i]!==null){
+      macdArr[i]=e12[i]-e26[i];
+      dense.push(macdArr[i]); denseIndex.push(i);
+    }
+  }
+  if(dense.length<9) return null;
+  const sigDense=emaSeries(dense,9);
+  const lastDense=dense.length-1;
+  const m=dense[lastDense], sig=sigDense[lastDense];
+  if(sig===null) return null;
+  return {macd:m, signal:sig, hist:m-sig};
+}
+function atrCalc(candles, period=14){
+  if(candles.length<period+1) return null;
+  const trs=[];
+  for(let i=1;i<candles.length;i++){
+    const c=candles[i], p=candles[i-1];
+    const tr=Math.max(
+      c.high-c.low,
+      Math.abs(c.high-p.close),
+      Math.abs(c.low-p.close)
+    );
+    trs.push(tr);
+  }
+  if(trs.length<period) return null;
+  let atr=trs.slice(0,period).reduce((a,b)=>a+b,0)/period;
+  for(let i=period;i<trs.length;i++){
+    atr=((atr*(period-1))+trs[i])/period;
+  }
+  return atr;
+}
+function volumeRatio(candles){
+  if(candles.length<21) return null;
+  const last=candles[candles.length-1].volume;
+  const prev=candles.slice(-21,-1).map(x=>x.volume);
+  const avg=prev.reduce((a,b)=>a+b,0)/prev.length;
+  return avg>0 ? last/avg : null;
+}
+function pivots(candles, left=2, right=2){
+  const highs=[], lows=[];
+  // 마지막 진행봉 영향 완화: 끝 1개 봉 제외
+  const end=Math.max(0,candles.length-1);
+  for(let i=left;i<end-right;i++){
+    let isH=true,isL=true;
+    for(let j=i-left;j<=i+right;j++){
+      if(j===i) continue;
+      if(candles[j].high>=candles[i].high) isH=false;
+      if(candles[j].low<=candles[i].low) isL=false;
+    }
+    if(isH) highs.push({i,price:candles[i].high});
+    if(isL) lows.push({i,price:candles[i].low});
+  }
+  return {highs,lows};
+}
+function structureCalc(candles){
+  if(candles.length<12) return {code:"-", label:"-", bias:0};
+  const p=pivots(candles,2,2);
+  if(p.highs.length<2 || p.lows.length<2) return {code:"MIX",label:"MIXED",bias:0};
+  const h1=p.highs[p.highs.length-2].price;
+  const h2=p.highs[p.highs.length-1].price;
+  const l1=p.lows[p.lows.length-2].price;
+  const l2=p.lows[p.lows.length-1].price;
+  const hCode=h2>h1?"HH":"LH";
+  const lCode=l2>l1?"HL":"LL";
+  if(hCode==="HH" && lCode==="HL") return {code:"HH/HL",label:"UP",bias:1};
+  if(hCode==="LH" && lCode==="LL") return {code:"LH/LL",label:"DOWN",bias:-1};
+  return {code:`${hCode}/${lCode}`,label:"MIXED",bias:0};
+}
+function analyze(candles){
+  if(candles.length<30) return null;
+  const closes=candles.map(x=>x.close);
+  const close=closes[closes.length-1];
+  const ma20=sma(closes,20);
+  const ma50=sma(closes,50);
+  const ma200=sma(closes,200);
+  const macd=macdCalc(closes);
+  const atr=atrCalc(candles,14);
+  const vr=volumeRatio(candles);
+  const structure=structureCalc(candles);
+
+  let score=0;
+  if(ma20!==null) score += close>ma20 ? 1 : -1;
+  if(ma50!==null) score += close>ma50 ? 1 : -1;
+  if(ma200!==null) score += close>ma200 ? 1 : -1;
+  if(ma20!==null && ma50!==null) score += ma20>ma50 ? 1 : -1;
+  if(ma50!==null && ma200!==null) score += ma50>ma200 ? 1 : -1;
+  if(macd) score += macd.hist>0 ? 1 : -1;
+  score += structure.bias*2;
+
+  let trend="MIXED";
+  if(score>=4) trend="UP";
+  else if(score<=-4) trend="DOWN";
+
+  return {close,ma20,ma50,ma200,macd,atr,vr,structure,score,trend};
+}
+function trendClass(t){ return t==="UP"?"up":t==="DOWN"?"down":"mixed"; }
+function trendText(t){ return t==="UP"?"상승":t==="DOWN"?"하락":"혼조"; }
+
+function renderTF(symbol, interval){
+  const arr=store[symbol][interval];
+  document.getElementById(`cnt-${symbol}-${interval}`).textContent=Math.min(arr.length,LIMIT);
+  const a=analyze(arr);
+  if(!a) return;
+  document.getElementById(`close-${symbol}-${interval}`).textContent=fmt(a.close);
+  document.getElementById(`ma20-${symbol}-${interval}`).textContent=fmt(a.ma20);
+  document.getElementById(`ma50-${symbol}-${interval}`).textContent=fmt(a.ma50);
+  document.getElementById(`ma200-${symbol}-${interval}`).textContent=fmt(a.ma200);
+  document.getElementById(`macd-${symbol}-${interval}`).textContent=a.macd?fmtSmall(a.macd.hist):"-";
+  document.getElementById(`atr-${symbol}-${interval}`).textContent=fmtSmall(a.atr);
+  document.getElementById(`vol-${symbol}-${interval}`).textContent=a.vr===null?"-":a.vr.toFixed(2);
+  document.getElementById(`struct-${symbol}-${interval}`).textContent=a.structure.code;
+  const el=document.getElementById(`trend-${symbol}-${interval}`);
+  el.className=`trend ${trendClass(a.trend)}`;
+  el.textContent=trendText(a.trend);
+}
+function renderOverall(symbol){
+  let ups=0,downs=0;
+  const analyses={};
+  TFS.forEach(tf=>{
+    const a=analyze(store[symbol][tf.key]);
+    analyses[tf.key]=a;
+    if(a?.trend==="UP") ups++;
+    if(a?.trend==="DOWN") downs++;
+  });
+  document.getElementById(`ups-${symbol}`).textContent=`${ups}/5`;
+  document.getElementById(`downs-${symbol}`).textContent=`${downs}/5`;
+
+  const h1=analyses["60"], h4=analyses["240"];
+  let align="-";
+  if(h1&&h4){
+    if(h1.trend==="UP"&&h4.trend==="UP") align="상승 정렬";
+    else if(h1.trend==="DOWN"&&h4.trend==="DOWN") align="하락 정렬";
+    else align="불일치";
+  }
+  document.getElementById(`align-${symbol}`).textContent=align;
+
+  let state="혼조 / 대기";
+  if(ups>=4 && h1?.trend==="UP" && h4?.trend==="UP") state="상승 우세";
+  else if(downs>=4 && h1?.trend==="DOWN" && h4?.trend==="DOWN") state="하락 우세";
+  document.getElementById(`state-${symbol}`).textContent=state;
+  document.getElementById("calcText").textContent="실시간 계산 중";
+}
+function renderTicker(symbol,t){
+  tickerCache[symbol]=Object.assign({},tickerCache[symbol]||{},t||{});
+  const x=tickerCache[symbol];
+  if(x.lastPrice!==undefined) document.getElementById(`px-${symbol}`).textContent=fmt(x.lastPrice);
+  if(x.price24hPcnt!==undefined){
+    const p=Number(x.price24hPcnt)*100;
+    const el=document.getElementById(`chg-${symbol}`);
+    el.className=`change ${pctClass(p)}`;
+    el.textContent=`24h ${p>=0?"+":""}${p.toFixed(2)}%`;
+  }
+}
+function renderAllSymbol(symbol){
+  TFS.forEach(tf=>renderTF(symbol,tf.key));
+  renderOverall(symbol);
+}
+
+function normalizeRestRow(row){
+  return {
+    start:Number(row[0]),open:Number(row[1]),high:Number(row[2]),low:Number(row[3]),
+    close:Number(row[4]),volume:Number(row[5]),turnover:Number(row[6]||0),confirm:true
+  };
+}
+function normalizeWsRow(row){
+  return {
+    start:Number(row.start),open:Number(row.open),high:Number(row.high),low:Number(row.low),
+    close:Number(row.close),volume:Number(row.volume),turnover:Number(row.turnover||0),confirm:!!row.confirm
+  };
+}
+function upsertCandle(symbol,interval,candle){
+  const arr=store[symbol][interval];
+  const idx=arr.findIndex(x=>x.start===candle.start);
+  if(idx>=0) arr[idx]=candle;
+  else{
+    arr.push(candle);
+    arr.sort((a,b)=>a.start-b.start);
+    if(arr.length>LIMIT) arr.splice(0,arr.length-LIMIT);
+  }
+  renderTF(symbol,interval);
+  renderOverall(symbol);
+}
+
+async function fetchHistory(symbol,interval){
+  const url=`https://api.bybit.com/v5/market/kline?category=linear&symbol=${symbol}&interval=${interval}&limit=${LIMIT}`;
+  const r=await fetch(url,{cache:"no-store"});
+  if(!r.ok) throw new Error(`${symbol} ${interval} HTTP ${r.status}`);
+  const j=await r.json();
+  if(j.retCode!==0 || !j.result || !Array.isArray(j.result.list))
+    throw new Error(`${symbol} ${interval} retCode=${j.retCode}`);
+  const rows=j.result.list.map(normalizeRestRow).sort((a,b)=>a.start-b.start);
+  store[symbol][interval]=rows.slice(-LIMIT);
+  loadedHistory++;
+  document.getElementById("historyText").textContent=`${loadedHistory} / 20`;
+  renderTF(symbol,interval);
+  log(`과거봉 OK ${symbol} ${interval} (${rows.length})`);
+}
+async function loadAllHistory(){
+  loadedHistory=0;
+  const jobs=[];
+  SYMBOLS.forEach(s=>TFS.forEach(tf=>jobs.push({s,tf:tf.key})));
+  for(let i=0;i<jobs.length;i+=4){
+    const batch=jobs.slice(i,i+4);
+    const results=await Promise.allSettled(batch.map(x=>fetchHistory(x.s,x.tf)));
+    results.forEach((r,k)=>{
+      if(r.status==="rejected"){
+        const x=batch[k]; log(`과거봉 실패 ${x.s} ${x.tf}: ${r.reason}`);
+      }
+    });
+    await new Promise(res=>setTimeout(res,180));
+  }
+  SYMBOLS.forEach(renderAllSymbol);
+  if(loadedHistory===20) showOk("Step 3 분석 데이터 준비 완료");
+  else showErr(`과거봉 ${loadedHistory}/20만 로딩됨`);
+}
+
+function connectWS(){
+  if(!running) return;
+  clearErr();
+  document.getElementById("connText").textContent="연결 중";
+  document.getElementById("statusText").textContent="연결 중";
+  ws=new WebSocket("wss://stream.bybit.com/v5/public/linear");
+
+  ws.onopen=()=>{
+    document.getElementById("connText").textContent="연결됨";
+    document.getElementById("statusText").textContent="감시 중";
+    const topics=[];
+    SYMBOLS.forEach(s=>{
+      topics.push(`tickers.${s}`);
+      TFS.forEach(tf=>topics.push(`kline.${tf.key}.${s}`));
+    });
+    for(let i=0;i<topics.length;i+=10){
+      ws.send(JSON.stringify({op:"subscribe",args:topics.slice(i,i+10)}));
+    }
+    pingTimer=setInterval(()=>{
+      if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({op:"ping"}));
+    },20000);
+    log(`WebSocket 구독 ${topics.length}개`);
+  };
+  ws.onmessage=(event)=>{
+    document.getElementById("lastUpdate").textContent=new Date().toLocaleTimeString("ko-KR");
+    let m; try{m=JSON.parse(event.data);}catch(e){return;}
+    if(m.topic?.startsWith("tickers.") && m.data){
+      const s=m.topic.split(".")[1];
+      if(SYMBOLS.includes(s)) renderTicker(s,m.data);
+      return;
+    }
+    if(m.topic?.startsWith("kline.") && Array.isArray(m.data)){
+      const parts=m.topic.split(".");
+      const interval=parts[1], symbol=parts[2];
+      if(!SYMBOLS.includes(symbol)) return;
+      m.data.forEach(row=>upsertCandle(symbol,interval,normalizeWsRow(row)));
+    }
+  };
+  ws.onerror=()=>{
+    document.getElementById("connText").textContent="오류";
+    document.getElementById("statusText").textContent="오류";
+    showErr("Bybit WebSocket 오류");
+    log("WebSocket 오류");
+  };
+  ws.onclose=()=>{
+    if(pingTimer){clearInterval(pingTimer);pingTimer=null;}
+    document.getElementById("connText").textContent="끊김";
+    if(running){
+      document.getElementById("statusText").textContent="재연결 대기";
+      reconnectTimer=setTimeout(connectWS,3000);
+    }else{
+      document.getElementById("statusText").textContent="대기";
+    }
+  };
+}
+
+async function start(){
+  if(running) return;
+  running=true;
+  clearErr();
+  document.getElementById("startBtn").textContent="감시 중지";
+  document.getElementById("startBtn").classList.add("stop");
+  document.getElementById("statusText").textContent="과거봉 로딩";
+  document.getElementById("calcText").textContent="준비 중";
+  log("Step 3 감시 시작");
+  await loadAllHistory();
+  connectWS();
+}
+function stop(){
+  running=false;
+  if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;}
+  if(pingTimer){clearInterval(pingTimer);pingTimer=null;}
+  if(ws){try{ws.close();}catch(e){} ws=null;}
+  document.getElementById("startBtn").textContent="감시 시작";
+  document.getElementById("startBtn").classList.remove("stop");
+  document.getElementById("statusText").textContent="중지";
+  document.getElementById("connText").textContent="끊김";
+  document.getElementById("calcText").textContent="중지";
+  log("감시 중지");
+}
+document.getElementById("startBtn").addEventListener("click",()=>running?stop():start());
+</script>
+</body>
+</html>
