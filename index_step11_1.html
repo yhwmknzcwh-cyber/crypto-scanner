@@ -1,0 +1,1103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Bybit Crypto Scanner - Step 11.1</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing:border-box; }
+    body{
+      margin:0;background:#0b0f14;color:#f5f7fa;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+    .wrap{max-width:1260px;margin:0 auto;padding:18px}
+    h1{font-size:28px;margin:0 0 6px}
+    .sub{color:#9aa4b2;margin-bottom:16px}
+    .top{
+      display:grid;grid-template-columns:repeat(6,1fr);gap:8px;
+      background:#121821;border:1px solid #263241;border-radius:14px;padding:12px;margin-bottom:14px
+    }
+    .box{font-size:13px;line-height:1.45}
+    .leader{
+      border:1px solid #334155;background:#111827;border-radius:16px;padding:14px;margin-bottom:14px
+    }
+    .leaderGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+    .big{font-size:24px;font-weight:850;margin-top:4px}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .coin{
+      background:#121821;border:1px solid #263241;border-radius:16px;padding:15px
+    }
+    .coinHead{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:12px}
+    .symbol{font-size:19px;font-weight:800}
+    .price{font-size:28px;font-weight:800}
+    .change{font-size:13px}
+    .pos{color:#4ade80}.neg{color:#f87171}.neu{color:#cbd5e1}.warn{color:#fbbf24}
+    .scoreRow{
+      display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px
+    }
+    .scoreBox{
+      border:1px solid #2c3949;background:#0d131b;border-radius:12px;padding:10px
+    }
+    .score{font-size:22px;font-weight:850}
+    .badge{
+      display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:850
+    }
+    .wait{background:#263241;color:#cbd5e1}
+    .watch{background:#3a2e0e;color:#fde68a}
+    .ready{background:#12331f;color:#86efac}
+    .long{color:#4ade80;font-weight:800}
+    .short{color:#f87171;font-weight:800}
+    .tfgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+    .tf{
+      border:1px solid #2c3949;background:#0d131b;border-radius:12px;padding:9px 7px;min-height:165px
+    }
+    .tfname{font-size:13px;font-weight:800;margin-bottom:5px}
+    .tfrow{font-size:11px;color:#aab4c2;line-height:1.47;white-space:nowrap}
+    .trend{
+      display:inline-block;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:800;margin-top:4px
+    }
+    .up{background:#12331f;color:#86efac}
+    .down{background:#3a1717;color:#fca5a5}
+    .mixed{background:#332b12;color:#fde68a}
+    .checks,.stats{
+      margin-top:10px;border:1px solid #2c3949;background:#0d131b;border-radius:12px;padding:10px
+    }
+    .checkgrid,.statgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+    .check,.stat{font-size:11px;color:#aab4c2}
+    .yes{color:#86efac}.no{color:#fca5a5}.maybe{color:#fde68a}
+    .buttons{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+    button{
+      padding:14px;border:0;border-radius:14px;font-size:16px;font-weight:750;color:white;background:#2563eb
+    }
+    button.secondary{background:#475569}
+    button.danger{background:#7f1d1d}
+    .msg{
+      margin-top:12px;padding:11px;border-radius:12px;display:none;font-size:13px;line-height:1.5
+    }
+    .err{background:#2a1515;color:#fecaca}
+    .good{background:#10251a;color:#bbf7d0}
+    .details{
+      margin-top:14px;background:#121821;border:1px solid #263241;border-radius:14px;padding:12px
+    }
+    .details summary{cursor:pointer;font-weight:700}
+    #log,#signalLog,#performanceLog{
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;
+      color:#9aa4b2;white-space:pre-wrap;max-height:280px;overflow:auto;margin-top:8px
+    }
+    .note{margin-top:12px;font-size:12px;color:#8d98a7;line-height:1.55}
+
+    .alertOverlay{
+      position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;
+      z-index:9999;padding:20px
+    }
+    .alertCard{
+      width:min(560px,94vw);background:#111827;border:2px solid #fbbf24;border-radius:20px;
+      padding:22px;box-shadow:0 20px 80px rgba(0,0,0,.55)
+    }
+    .alertTitle{font-size:26px;font-weight:900;margin-bottom:10px}
+    .alertBody{font-size:16px;line-height:1.6;white-space:pre-line}
+    .manageTag{display:inline-block;padding:3px 7px;border-radius:999px;font-size:10px;font-weight:800}
+    .manageHold{background:#263241;color:#cbd5e1}
+    .manageExtend{background:#12331f;color:#86efac}
+    .manageExit{background:#3a2e0e;color:#fde68a}
+
+    .tradebox{
+      margin-top:10px;border:1px solid #2c3949;background:#0b1220;border-radius:12px;padding:10px
+    }
+    .tradegrid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+    .tradeitem{font-size:11px;color:#aab4c2}
+    .tradeitem b{display:block;margin-top:2px;color:#f8fafc;font-size:12px}
+    .openTag{color:#fde68a}
+    .winTag{color:#86efac}
+    .lossTag{color:#fca5a5}
+    @media(max-width:680px){
+      .tradegrid{grid-template-columns:repeat(2,1fr)}
+    }
+    .perfTop{
+      display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:14px 0
+    }
+    .perfCard{
+      border:1px solid #2c3949;background:#0d131b;border-radius:12px;padding:10px;font-size:12px
+    }
+    .perfNum{font-size:22px;font-weight:850;margin-top:4px}
+    @media(max-width:960px){
+      .grid{grid-template-columns:1fr}
+      .top{grid-template-columns:repeat(3,1fr)}
+      .leaderGrid{grid-template-columns:repeat(2,1fr)}
+      .perfTop{grid-template-columns:repeat(3,1fr)}
+    }
+    @media(max-width:680px){
+      .tfgrid,.checkgrid,.statgrid{grid-template-columns:repeat(2,1fr)}
+      .scoreRow{grid-template-columns:repeat(2,1fr)}
+      .buttons{grid-template-columns:1fr}
+      .top{grid-template-columns:repeat(2,1fr)}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Bybit Crypto Scanner</h1>
+  <div class="sub">Step 11.1 · 핵심 4종 + 주요 알트 6종 고정</div>
+
+  <div class="top">
+    <div class="box"><b>상태</b><br><span id="statusText">대기</span></div>
+    <div class="box"><b>WebSocket</b><br><span id="connText">끊김</span></div>
+    <div class="box"><b>과거봉</b><br><span id="historyText">0 / 20</span></div>
+    <div class="box"><b>신호 엔진</b><br><span id="engineText">대기</span></div>
+    <div class="box"><b>성과 추적</b><br><span id="perfText">대기</span></div>
+    <div class="box"><b>마지막 수신</b><br><span id="lastUpdate">-</span></div>
+  </div>
+
+  <div class="leader">
+    <div class="leaderGrid">
+      <div><b>현재 최고 후보</b><div class="big" id="leaderSymbol">-</div></div>
+      <div><b>방향</b><div class="big" id="leaderDir">-</div></div>
+      <div><b>점수</b><div class="big" id="leaderScore">-</div></div>
+      <div><b>상태</b><div class="big" id="leaderStatus">WAIT</div></div>
+      <div><b>추적 중 신호</b><div class="big" id="activeTracks">0</div></div>
+    </div>
+  </div>
+
+  <div class="perfTop">
+    <div class="perfCard"><b>검증 완료</b><div class="perfNum" id="closedCount">0</div></div>
+    <div class="perfCard"><b>승리</b><div class="perfNum pos" id="winCount">0</div></div>
+    <div class="perfCard"><b>패배</b><div class="perfNum neg" id="lossCount">0</div></div>
+    <div class="perfCard"><b>승률</b><div class="perfNum" id="winRate">-</div></div>
+    <div class="perfCard"><b>평균 MFE</b><div class="perfNum" id="avgMFE">-</div></div>
+    <div class="perfCard"><b>평균 MAE</b><div class="perfNum" id="avgMAE">-</div></div>
+  </div>
+
+  <div class="grid" id="coins"></div>
+
+  <div class="buttons">
+    <button id="startBtn">감시 시작</button>
+    <button class="secondary" id="exportBtn">전체 기록 내보내기</button>
+    <button class="danger" id="clearBtn">성과 기록 초기화</button>
+    <button class="secondary" id="testAlertBtn">알림음 시험</button>
+  </div>
+
+  <div class="msg err" id="errorBox"></div>
+  <div class="msg good" id="okBox"></div>
+
+  <details class="details" open>
+    <summary>성과 추적 기록</summary>
+    <div id="performanceLog"></div>
+  </details>
+
+  <details class="details">
+    <summary>신호 상태 기록</summary>
+    <div id="signalLog"></div>
+  </details>
+
+  <details class="details">
+    <summary>진단 로그</summary>
+    <div id="log"></div>
+  </details>
+
+  <div class="note">Step 11.1은 변동성이 큰 자동선정 종목을 제외하고 BTC·ETH·SOL·XRP 4종과 DOGE·ADA·LINK·AVAX·SUI·BNB 6종을 고정 감시합니다. 총 10종목 모두 Step 10의 READY/가상진입/SL/TP/조기청산/모멘텀청산/한국어 음성 규칙을 동일하게 적용합니다. WATCH는 계속 무음이며, 한국어 음성의 높이는 이전보다 약간 높였습니다. 실제 주문 기능은 없습니다.</div>
+</div>
+
+<div class="alertOverlay" id="alertOverlay">
+  <div class="alertCard">
+    <div class="alertTitle" id="alertTitle">신호</div>
+    <div class="alertBody" id="alertBody"></div>
+    <button id="alertCloseBtn">확인</button>
+  </div>
+</div>
+
+<script>
+const CORE_SYMBOLS=["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT"];
+const MAJOR_ALT_SYMBOLS=["DOGEUSDT","ADAUSDT","LINKUSDT","AVAXUSDT","SUIUSDT","BNBUSDT"];
+let SYMBOLS=[...CORE_SYMBOLS,...MAJOR_ALT_SYMBOLS];
+const TFS=[
+  {key:"1",label:"1m"},
+  {key:"5",label:"5m"},
+  {key:"15",label:"15m"},
+  {key:"60",label:"1H"},
+  {key:"240",label:"4H"}
+];
+const LIMIT=200;
+const SIGNAL_KEY="bybitScannerStep11_1SignalsV1";
+const PERF_KEY="bybitScannerStep11_1TradesV1";
+const TRACK_KEY="bybitScannerStep11_1OpenTradesV1";
+const HORIZONS=[5,15,30,60];
+const RR_TARGET=2.0;
+const ATR_MULT=1.20;
+const MIN_STOP_PCT=0.18;
+const MAX_STOP_PCT=0.80;
+const MAX_TRADE_MIN=1440;
+
+const EARLY_MIN_PROFIT_PCT=0.25;
+const EARLY_PULLBACK_PCT=0.18;
+const EXTEND_TRIGGER_R=1.00;
+const EXTEND_STEP_R=0.75;
+const TRAIL_LOCK_R=0.45;
+const MAX_TP_EXTENSIONS=4;
+const MOMENTUM_EXIT_MIN_MIN=35;
+const MOMENTUM_EXIT_CONFIRM_MIN=10;
+const MOMENTUM_EXIT_MAX_PROGRESS_R=0.55;
+const MOMENTUM_EXIT_MAX_LOSS_R=0.55;
+let audioCtx=null;
+let lastManageAlert={};
+
+
+let ws=null,running=false,pingTimer=null,reconnectTimer=null,loadedHistory=0;
+const store={},tickerCache={},lastSignalState={};
+SYMBOLS.forEach(s=>{
+  store[s]={};
+  TFS.forEach(tf=>store[s][tf.key]=[]);
+  lastSignalState[s]="";
+});
+
+function log(msg){
+  const el=document.getElementById("log");
+  const t=new Date().toLocaleTimeString("ko-KR");
+  el.textContent+=`[${t}] ${msg}\n`;
+  el.scrollTop=el.scrollHeight;
+}
+function showErr(msg){const e=document.getElementById("errorBox");e.textContent=msg;e.style.display="block";}
+function clearErr(){document.getElementById("errorBox").style.display="none";}
+function showOk(msg){const e=document.getElementById("okBox");e.textContent=msg;e.style.display="block";setTimeout(()=>e.style.display="none",2800);}
+function fmt(n){
+  if(n===null||n===undefined||n===""||Number.isNaN(Number(n))) return "-";
+  const x=Number(n);
+  if(Math.abs(x)>=1000) return x.toLocaleString(undefined,{maximumFractionDigits:2});
+  if(Math.abs(x)>=1) return x.toLocaleString(undefined,{maximumFractionDigits:4});
+  return x.toLocaleString(undefined,{maximumFractionDigits:6});
+}
+function fmtSmall(n){
+  if(n===null||n===undefined||Number.isNaN(Number(n))) return "-";
+  const x=Number(n);
+  if(Math.abs(x)>=1000) return x.toLocaleString(undefined,{maximumFractionDigits:1});
+  if(Math.abs(x)>=10) return x.toFixed(2);
+  return x.toFixed(4);
+}
+function pctClass(v){return v>0?"pos":v<0?"neg":"neu";}
+function nowIso(){return new Date().toISOString();}
+function pctMove(entry,current,dir){
+  if(!entry||!current) return 0;
+  const raw=(current-entry)/entry*100;
+  return dir==="SHORT"?-raw:raw;
+}
+
+
+function unlockAudio(){
+  try{
+    if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==="suspended") audioCtx.resume();
+  }catch(e){}
+}
+function beep(kind="READY"){
+  try{
+    unlockAudio();
+    if(!audioCtx) return;
+    const now=audioCtx.currentTime;
+    const seq=kind==="LOSS"?[330,260,220]:kind==="WIN"?[660,880,1100]:kind==="EXIT"?[700,520,700]:[880,880,1040];
+    seq.forEach((f,i)=>{
+      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+      o.type="sine";o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,now+i*0.17);
+      g.gain.exponentialRampToValueAtTime(0.18,now+i*0.17+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,now+i*0.17+0.13);
+      o.connect(g);g.connect(audioCtx.destination);o.start(now+i*0.17);o.stop(now+i*0.17+0.14);
+    });
+  }catch(e){}
+}
+
+function speakKo(text){
+  try{
+    if(!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang="ko-KR"; u.rate=1.0; u.pitch=1.12; u.volume=1.0;
+    const voices=window.speechSynthesis.getVoices();
+    const ko=voices.find(v=>String(v.lang||"").toLowerCase().startsWith("ko"));
+    if(ko) u.voice=ko;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function alertWithVoice(title,body,kind,voiceText){
+  showAlert(title,body,kind);
+  setTimeout(()=>speakKo(voiceText),100);
+}
+
+function showAlert(title,body,kind="READY"){
+  document.getElementById("alertTitle").textContent=title;
+  document.getElementById("alertBody").textContent=body;
+  document.getElementById("alertOverlay").style.display="flex";
+  beep(kind);
+}
+function closeAlert(){document.getElementById("alertOverlay").style.display="none";}
+function alertOpened(x){
+  alertWithVoice(`${x.symbol} ${x.direction} READY`,
+    `${x.symbol} ${x.direction}\n점수 ${x.scoreAtStart}\nEntry ${fmt(x.entryPrice)}\nSL ${fmt(x.stopPrice)}\nTP ${fmt(x.targetPrice)}\nR:R 1:${x.rr}`,
+    "READY",`${x.symbol.replace("USDT","")} ${x.direction==="LONG"?"롱":"숏"} 진입하십시오.`);
+}
+function alertClosed(x){
+  const p=x.realizedPct;
+  const body=`${x.symbol} ${x.direction}\n${x.exitReason}\nEntry ${fmt(x.entryPrice)}\nExit ${fmt(x.exitPrice)}\n손익 ${p===undefined?"-":(p>=0?"+":"")+p.toFixed(3)+"%"}`;
+  let voice=x.exitReason==="TP"
+    ? `${x.symbol.replace("USDT","")} ${x.direction==="LONG"?"롱":"숏"} 익절하였습니다.`
+    : x.exitReason==="SL"
+    ? `${x.symbol.replace("USDT","")} ${x.direction==="LONG"?"롱":"숏"} 손절되었습니다.`
+    : x.exitReason==="MOMENTUM_EXIT"
+    ? `${x.symbol.replace("USDT","")} ${x.direction==="LONG"?"롱":"숏"} 모멘텀이 소멸했습니다. 거래 종료를 권고합니다.`
+    : `${x.symbol.replace("USDT","")} 거래가 종료되었습니다.`;
+  alertWithVoice(`${x.symbol} ${x.result}`,body,
+    x.result==="WIN"?"WIN":x.result==="LOSS"?"LOSS":"EXIT",voice);
+}
+function alertManage(x,title,reason){
+  const key=`${x.id}|${title}|${fmt(x.stopPrice)}|${fmt(x.targetPrice)}`;
+  if(lastManageAlert[x.symbol]===key) return;
+  lastManageAlert[x.symbol]=key;
+  let voice=`${x.symbol.replace("USDT","")} ${x.direction==="LONG"?"롱":"숏"} 포지션 관리 알림입니다.`;
+  if(title.includes("청산")) voice=`${x.symbol.replace("USDT","")} ${x.direction==="LONG"?"롱":"숏"} 수익 보호 청산을 권고합니다.`;
+  if(title.includes("SL/TP")) voice=`${x.symbol.replace("USDT","")} ${x.direction==="LONG"?"롱":"숏"} 손절가와 익절가를 조정하십시오.`;
+  alertWithVoice(`${x.symbol} ${title}`,
+    `${x.symbol} ${x.direction}\n${reason}\n현재 SL ${fmt(x.stopPrice)}\n현재 TP ${fmt(x.targetPrice)}\nMFE ${x.mfe.toFixed(3)}%\nMAE ${x.mae.toFixed(3)}%`,
+    title.includes("청산")?"EXIT":"READY",voice);
+}
+
+function makeUI(){
+  document.getElementById("coins").innerHTML=SYMBOLS.map(s=>`
+    <div class="coin">
+      <div class="coinHead">
+        <div>
+          <div class="symbol">${s}</div>
+          <div class="change neu" id="chg-${s}">24h -</div>
+        </div>
+        <div class="price" id="px-${s}">-</div>
+      </div>
+
+      <div class="scoreRow">
+        <div class="scoreBox"><b>후보 점수</b><div class="score" id="score-${s}">0</div></div>
+        <div class="scoreBox"><b>방향</b><div class="score" id="dir-${s}">-</div></div>
+        <div class="scoreBox"><b>상태</b><div style="margin-top:7px"><span id="status-${s}" class="badge wait">WAIT</span></div></div>
+        <div class="scoreBox"><b>추적</b><div class="score" id="track-${s}">0</div></div>
+      </div>
+
+      <div class="tfgrid">
+        ${TFS.map(tf=>`
+          <div class="tf">
+            <div class="tfname">${tf.label}</div>
+            <div class="tfrow">C <span id="close-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">MA20 <span id="ma20-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">MA50 <span id="ma50-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">MA200 <span id="ma200-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">MACD <span id="macd-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">ATR14 <span id="atr-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">VOL× <span id="vol-${s}-${tf.key}">-</span></div>
+            <div class="tfrow">구조 <span id="struct-${s}-${tf.key}">-</span></div>
+            <span id="trend-${s}-${tf.key}" class="trend mixed">대기</span>
+          </div>
+        `).join("")}
+      </div>
+
+      <div class="checks">
+        <div class="checkgrid">
+          <div class="check">4H 방향<br><b id="c4h-${s}">-</b></div>
+          <div class="check">1H 확인<br><b id="c1h-${s}">-</b></div>
+          <div class="check">15m 셋업<br><b id="c15-${s}">-</b></div>
+          <div class="check">5m 트리거<br><b id="c5-${s}">-</b></div>
+          <div class="check">1m 타이밍<br><b id="c1-${s}">-</b></div>
+        </div>
+      </div>
+
+      <div class="tradebox">
+        <div class="tradegrid">
+          <div class="tradeitem">거래상태<b id="tstate-${s}">-</b></div>
+          <div class="tradeitem">Entry<b id="tentry-${s}">-</b></div>
+          <div class="tradeitem">SL<b id="tsl-${s}">-</b></div>
+          <div class="tradeitem">TP<b id="ttp-${s}">-</b></div>
+          <div class="tradeitem">R:R<b id="trr-${s}">-</b></div>
+          <div class="tradeitem">현재손익<b id="tpl-${s}">-</b></div>
+          <div class="tradeitem">관리상태<b id="tmanage-${s}">-</b></div>
+          <div class="tradeitem">조정횟수<b id="tmods-${s}">0</b></div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="statgrid">
+          <div class="stat">5m 성과<br><b id="p5-${s}">-</b></div>
+          <div class="stat">15m 성과<br><b id="p15-${s}">-</b></div>
+          <div class="stat">30m 성과<br><b id="p30-${s}">-</b></div>
+          <div class="stat">60m 성과<br><b id="p60-${s}">-</b></div>
+          <div class="stat">최근 결과<br><b id="plast-${s}">-</b></div>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+makeUI();
+
+function sma(v,p){
+  if(v.length<p) return null;
+  let s=0; for(let i=v.length-p;i<v.length;i++) s+=v[i];
+  return s/p;
+}
+function emaSeries(v,p){
+  if(v.length<p) return [];
+  const out=new Array(v.length).fill(null),k=2/(p+1);
+  let seed=0; for(let i=0;i<p;i++) seed+=v[i];
+  let prev=seed/p; out[p-1]=prev;
+  for(let i=p;i<v.length;i++){prev=v[i]*k+prev*(1-k);out[i]=prev;}
+  return out;
+}
+function macdCalc(v){
+  if(v.length<35) return null;
+  const e12=emaSeries(v,12),e26=emaSeries(v,26),dense=[];
+  for(let i=0;i<v.length;i++) if(e12[i]!==null&&e26[i]!==null) dense.push(e12[i]-e26[i]);
+  if(dense.length<9) return null;
+  const sig=emaSeries(dense,9),i=dense.length-1;
+  if(sig[i]===null) return null;
+  return {macd:dense[i],signal:sig[i],hist:dense[i]-sig[i]};
+}
+function atrCalc(c,p=14){
+  if(c.length<p+1) return null;
+  const tr=[];
+  for(let i=1;i<c.length;i++){
+    tr.push(Math.max(c[i].high-c[i].low,Math.abs(c[i].high-c[i-1].close),Math.abs(c[i].low-c[i-1].close)));
+  }
+  let atr=tr.slice(0,p).reduce((a,b)=>a+b,0)/p;
+  for(let i=p;i<tr.length;i++) atr=(atr*(p-1)+tr[i])/p;
+  return atr;
+}
+function volumeRatio(c){
+  if(c.length<21) return null;
+  const prev=c.slice(-21,-1).map(x=>x.volume);
+  const avg=prev.reduce((a,b)=>a+b,0)/prev.length;
+  return avg>0?c.at(-1).volume/avg:null;
+}
+function pivots(c,left=2,right=2){
+  const highs=[],lows=[],end=Math.max(0,c.length-1);
+  for(let i=left;i<end-right;i++){
+    let h=true,l=true;
+    for(let j=i-left;j<=i+right;j++){
+      if(j===i) continue;
+      if(c[j].high>=c[i].high) h=false;
+      if(c[j].low<=c[i].low) l=false;
+    }
+    if(h) highs.push({i,price:c[i].high});
+    if(l) lows.push({i,price:c[i].low});
+  }
+  return {highs,lows};
+}
+function structureCalc(c){
+  const p=pivots(c);
+  if(p.highs.length<2||p.lows.length<2) return {code:"MIX",bias:0};
+  const h1=p.highs.at(-2).price,h2=p.highs.at(-1).price,l1=p.lows.at(-2).price,l2=p.lows.at(-1).price;
+  const hc=h2>h1?"HH":"LH",lc=l2>l1?"HL":"LL";
+  if(hc==="HH"&&lc==="HL") return {code:"HH/HL",bias:1};
+  if(hc==="LH"&&lc==="LL") return {code:"LH/LL",bias:-1};
+  return {code:`${hc}/${lc}`,bias:0};
+}
+function analyze(c){
+  if(c.length<30) return null;
+  const closes=c.map(x=>x.close),close=closes.at(-1);
+  const ma20=sma(closes,20),ma50=sma(closes,50),ma200=sma(closes,200);
+  const macd=macdCalc(closes),atr=atrCalc(c),vr=volumeRatio(c),structure=structureCalc(c);
+  let score=0;
+  if(ma20!==null) score+=close>ma20?1:-1;
+  if(ma50!==null) score+=close>ma50?1:-1;
+  if(ma200!==null) score+=close>ma200?1:-1;
+  if(ma20!==null&&ma50!==null) score+=ma20>ma50?1:-1;
+  if(ma50!==null&&ma200!==null) score+=ma50>ma200?1:-1;
+  if(macd) score+=macd.hist>0?1:-1;
+  score+=structure.bias*2;
+  let trend="MIXED";
+  if(score>=4) trend="UP";
+  else if(score<=-4) trend="DOWN";
+  return {close,ma20,ma50,ma200,macd,atr,vr,structure,score,trend};
+}
+function trendClass(t){return t==="UP"?"up":t==="DOWN"?"down":"mixed";}
+function trendText(t){return t==="UP"?"상승":t==="DOWN"?"하락":"혼조";}
+
+function directionMatch(a,dir){return a&&((dir==="LONG"&&a.trend==="UP")||(dir==="SHORT"&&a.trend==="DOWN"));}
+function notOpposite(a,dir){return a&&((dir==="LONG"&&a.trend!=="DOWN")||(dir==="SHORT"&&a.trend!=="UP"));}
+function momentumMatch(a,dir){if(!a||!a.macd)return false;return dir==="LONG"?a.macd.hist>0:a.macd.hist<0;}
+function ma20Match(a,dir){if(!a||a.ma20===null)return false;return dir==="LONG"?a.close>a.ma20:a.close<a.ma20;}
+function structureMatch(a,dir){if(!a)return false;return dir==="LONG"?a.structure.bias>=0:a.structure.bias<=0;}
+
+function signalCalc(symbol){
+  const a1=analyze(store[symbol]["1"]),a5=analyze(store[symbol]["5"]),a15=analyze(store[symbol]["15"]),
+        a60=analyze(store[symbol]["60"]),a240=analyze(store[symbol]["240"]);
+  if(!a1||!a5||!a15||!a60||!a240) return null;
+
+  let dir=null;
+  if(a240.trend==="UP"&&a60.trend!=="DOWN") dir="LONG";
+  else if(a240.trend==="DOWN"&&a60.trend!=="UP") dir="SHORT";
+  else if(a240.trend==="MIXED"&&a60.trend==="UP") dir="LONG";
+  else if(a240.trend==="MIXED"&&a60.trend==="DOWN") dir="SHORT";
+
+  if(!dir) return {dir:"-",score:20,status:"WAIT",checks:{h4:false,h1:false,m15:false,m5:false,m1:false}};
+
+  const checks={
+    h4: directionMatch(a240,dir)||(a240.trend==="MIXED"&&structureMatch(a240,dir)),
+    h1: directionMatch(a60,dir),
+    m15: notOpposite(a15,dir)&&ma20Match(a15,dir),
+    m5: directionMatch(a5,dir)&&momentumMatch(a5,dir)&&ma20Match(a5,dir),
+    m1: notOpposite(a1,dir)&&momentumMatch(a1,dir)
+  };
+
+  let score=0;
+  score+=checks.h4?25:0;
+  score+=checks.h1?20:0;
+  score+=checks.m15?20:0;
+  score+=checks.m5?20:0;
+  score+=checks.m1?10:0;
+  const vrGood=(a5.vr!==null&&a5.vr>=0.8)||(a15.vr!==null&&a15.vr>=0.8);
+  if(vrGood) score+=5;
+
+  let status="WAIT";
+  if(score>=80&&checks.h4&&checks.h1&&checks.m15&&checks.m5) status="READY";
+  else if(score>=55&&checks.h4&&(checks.h1||checks.m15)) status="WATCH";
+  return {dir,score:Math.min(score,100),status,checks,vrGood};
+}
+
+function renderTF(symbol,interval){
+  const a=analyze(store[symbol][interval]);
+  if(!a) return;
+  document.getElementById(`close-${symbol}-${interval}`).textContent=fmt(a.close);
+  document.getElementById(`ma20-${symbol}-${interval}`).textContent=fmt(a.ma20);
+  document.getElementById(`ma50-${symbol}-${interval}`).textContent=fmt(a.ma50);
+  document.getElementById(`ma200-${symbol}-${interval}`).textContent=fmt(a.ma200);
+  document.getElementById(`macd-${symbol}-${interval}`).textContent=a.macd?fmtSmall(a.macd.hist):"-";
+  document.getElementById(`atr-${symbol}-${interval}`).textContent=fmtSmall(a.atr);
+  document.getElementById(`vol-${symbol}-${interval}`).textContent=a.vr===null?"-":a.vr.toFixed(2);
+  document.getElementById(`struct-${symbol}-${interval}`).textContent=a.structure.code;
+  const e=document.getElementById(`trend-${symbol}-${interval}`);
+  e.className=`trend ${trendClass(a.trend)}`;
+  e.textContent=trendText(a.trend);
+}
+function checkText(v){return v?`<span class="yes">PASS</span>`:`<span class="no">NO</span>`;}
+function statusClass(s){return s==="READY"?"ready":s==="WATCH"?"watch":"wait";}
+
+function getJson(key, fallback){
+  try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback));}catch(e){return fallback;}
+}
+function setJson(key,val){
+  try{localStorage.setItem(key,JSON.stringify(val));}catch(e){}
+}
+function getSignals(){return getJson(SIGNAL_KEY,[]);}
+function getPerf(){return getJson(PERF_KEY,[]);}
+function getTracks(){return getJson(TRACK_KEY,[]);}
+
+function maybeRecordSignal(symbol,s){
+  const key=`${s.status}|${s.dir}|${Math.floor(s.score/5)*5}`;
+  if(lastSignalState[symbol]===key) return;
+  lastSignalState[symbol]=key;
+  const price=Number(tickerCache[symbol]?.lastPrice || analyze(store[symbol]["1"])?.close || 0);
+  const rec={ts:nowIso(),symbol,price,direction:s.dir,score:s.score,status:s.status,checks:s.checks};
+  const arr=getSignals();arr.push(rec);setJson(SIGNAL_KEY,arr.slice(-2000));
+  if((s.status==="WATCH"||s.status==="READY")&&price>0&&s.dir!=="-"){
+    createTrack(rec);
+  }
+  renderSignalLog();
+}
+
+function calcTradeLevels(symbol,dir,entry){
+  const c15=store[symbol]["15"], a15=analyze(c15);
+  if(!c15?.length||!a15?.atr) return null;
+  const recent=c15.slice(-20);
+  const swingLow=Math.min(...recent.map(x=>x.low)), swingHigh=Math.max(...recent.map(x=>x.high));
+  const atr=a15.atr;
+  let structuralRisk=dir==="LONG"?entry-swingLow:swingHigh-entry;
+  let risk=Math.max(structuralRisk>0?structuralRisk:0,atr*ATR_MULT);
+  risk=Math.max(entry*(MIN_STOP_PCT/100),Math.min(risk,entry*(MAX_STOP_PCT/100)));
+  return {stopPrice:dir==="LONG"?entry-risk:entry+risk,targetPrice:dir==="LONG"?entry+risk*RR_TARGET:entry-risk*RR_TARGET,
+    stopPct:risk/entry*100,targetPct:risk*RR_TARGET/entry*100,rr:RR_TARGET,atr15:atr,swingRef:dir==="LONG"?swingLow:swingHigh};
+}
+function createTrack(signal){
+  if(signal.status!=="READY") return;
+  const tracks=getTracks();
+  if(tracks.some(x=>x.symbol===signal.symbol&&!x.closed)) return;
+  const lv=calcTradeLevels(signal.symbol,signal.direction,signal.price); if(!lv)return;
+  const trade={
+    id:`${signal.symbol}_${Date.now()}`,
+    version:"STEP11_1_V1",
+    symbol:signal.symbol,direction:signal.direction,statusAtStart:signal.status,scoreAtStart:signal.score,
+    checksAtStart:signal.checks,entryPrice:signal.price,initialStopPrice:lv.stopPrice,initialTargetPrice:lv.targetPrice,
+    stopPrice:lv.stopPrice,targetPrice:lv.targetPrice,stopPct:lv.stopPct,targetPct:lv.targetPct,rr:lv.rr,
+    atr15:lv.atr15,swingRef:lv.swingRef,startedAt:signal.ts,snapshots:{},mfe:0,mae:0,
+    bestPrice:signal.price,worstPrice:signal.price,closed:false,result:null,exitPrice:null,exitReason:null,
+    managementState:"HOLD",modifications:[],extensions:0,lastPeakMovePct:0,momentumWeakSince:null
+  };
+  tracks.push(trade);
+  setJson(TRACK_KEY,tracks.slice(-500));
+  log(`가상 진입 ${signal.symbol} ${signal.direction} entry=${signal.price} SL=${lv.stopPrice.toFixed(6)} TP=${lv.targetPrice.toFixed(6)} R:R=1:${lv.rr}`);
+  alertOpened(trade);
+}
+function updateTracks(){
+  if(!running){renderPerformance();return;}
+  const tracks=getTracks(); let changed=false, now=Date.now();
+
+  for(const x of tracks){
+    if(x.closed) continue;
+    const px=Number(tickerCache[x.symbol]?.lastPrice||analyze(store[x.symbol]["1"])?.close||0);
+    if(!px) continue;
+
+    const move=pctMove(x.entryPrice,px,x.direction);
+    x.mfe=Math.max(x.mfe,move);
+    x.mae=Math.min(x.mae,move);
+    x.lastPeakMovePct=Math.max(x.lastPeakMovePct||0,move);
+
+    if(x.direction==="LONG"){
+      x.bestPrice=Math.max(x.bestPrice,px); x.worstPrice=Math.min(x.worstPrice,px);
+    }else{
+      x.bestPrice=Math.min(x.bestPrice,px); x.worstPrice=Math.max(x.worstPrice,px);
+    }
+
+    const age=(now-new Date(x.startedAt).getTime())/60000;
+    for(const h of HORIZONS){
+      if(age>=h && x.snapshots[h]===undefined){
+        x.snapshots[h]={price:px,movePct:move,at:nowIso()}; changed=true;
+      }
+    }
+
+    const a1=analyze(store[x.symbol]["1"]);
+    const a5=analyze(store[x.symbol]["5"]);
+    const a15=analyze(store[x.symbol]["15"]);
+    const dir=x.direction;
+
+    // 1) 강한 추세: 수익이 1R 이상이고 5m/15m 모멘텀 정렬 시 SL 보호 + TP 확장
+    const riskAbs=Math.abs(x.entryPrice-x.initialStopPrice);
+    const currentR=riskAbs>0 ? Math.abs(px-x.entryPrice)/riskAbs : 0;
+    const strongTrend=directionMatch(a5,dir)&&directionMatch(a15,dir)&&momentumMatch(a5,dir)&&momentumMatch(a15,dir);
+
+    if(currentR>=EXTEND_TRIGGER_R && strongTrend && x.extensions<MAX_TP_EXTENSIONS){
+      const desiredLock = x.direction==="LONG"
+        ? x.entryPrice + riskAbs*TRAIL_LOCK_R
+        : x.entryPrice - riskAbs*TRAIL_LOCK_R;
+
+      const desiredTP = x.direction==="LONG"
+        ? Math.max(x.targetPrice, px + riskAbs*EXTEND_STEP_R)
+        : Math.min(x.targetPrice, px - riskAbs*EXTEND_STEP_R);
+
+      let modified=false;
+      if(x.direction==="LONG"){
+        if(desiredLock>x.stopPrice){x.stopPrice=desiredLock;modified=true;}
+        if(desiredTP>x.targetPrice){x.targetPrice=desiredTP;modified=true;}
+      }else{
+        if(desiredLock<x.stopPrice){x.stopPrice=desiredLock;modified=true;}
+        if(desiredTP<x.targetPrice){x.targetPrice=desiredTP;modified=true;}
+      }
+
+      if(modified){
+        x.extensions++;
+        x.managementState="EXTEND";
+        x.modifications.push({at:nowIso(),type:"EXTEND",price:px,stopPrice:x.stopPrice,targetPrice:x.targetPrice,currentR});
+        changed=true;
+        alertManage(x,"SL/TP 상향 조정","강한 5m·15m 모멘텀이 유지되어 수익 보호선과 목표가를 조정했습니다.");
+        log(`동적조정 ${x.symbol} ${x.direction} SL=${x.stopPrice} TP=${x.targetPrice}`);
+      }
+    }
+
+    // 2) 모멘텀 소멸 청산
+    const progressR=riskAbs>0 ? Math.abs(px-x.entryPrice)/riskAbs : 0;
+    const signedR=riskAbs>0 ? ((x.direction==="LONG"?px-x.entryPrice:x.entryPrice-px)/riskAbs) : 0;
+    const momentumWeak = (!directionMatch(a5,dir) || !momentumMatch(a5,dir)) &&
+                         (!directionMatch(a15,dir) || !momentumMatch(a15,dir));
+
+    if(age>=MOMENTUM_EXIT_MIN_MIN && momentumWeak &&
+       progressR<=MOMENTUM_EXIT_MAX_PROGRESS_R && signedR>=-MOMENTUM_EXIT_MAX_LOSS_R){
+      if(!x.momentumWeakSince){x.momentumWeakSince=now;changed=true;}
+    }else if(x.momentumWeakSince){
+      x.momentumWeakSince=null;changed=true;
+    }
+
+    const weakForMin=x.momentumWeakSince?(now-x.momentumWeakSince)/60000:0;
+    if(x.momentumWeakSince && weakForMin>=MOMENTUM_EXIT_CONFIRM_MIN){
+      x.closed=true;x.closedAt=nowIso();x.exitPrice=px;x.exitReason="MOMENTUM_EXIT";
+      x.realizedPct=move;
+      x.result=move>0?"WIN_MOMENTUM":move<0?"LOSS_MOMENTUM":"FLAT_MOMENTUM";
+      x.managementState="MOMENTUM_EXIT";
+      x.modifications.push({at:nowIso(),type:"MOMENTUM_EXIT",price:px,movePct:move,weakForMin});
+      const p=getPerf();p.push({...x});setJson(PERF_KEY,p.slice(-2000));changed=true;
+      log(`모멘텀청산 ${x.symbol} ${x.direction} P/L=${move.toFixed(3)}%`);
+      alertClosed(x);
+      continue;
+    }
+
+    // 3) 조기청산: 일정 수익 후 고점 대비 되밀림 + 5m/15m 약화
+    const pullback=(x.lastPeakMovePct||0)-move;
+    const weakened = (!directionMatch(a5,dir) || !momentumMatch(a5,dir)) &&
+                     (!directionMatch(a15,dir) || !momentumMatch(a15,dir));
+
+    const earlyExit = move>=EARLY_MIN_PROFIT_PCT &&
+                      pullback>=EARLY_PULLBACK_PCT &&
+                      weakened;
+
+    if(earlyExit){
+      x.closed=true;x.closedAt=nowIso();x.exitPrice=px;x.exitReason="EARLY_EXIT";
+      x.result="WIN_EARLY";x.realizedPct=move;x.managementState="EARLY_EXIT";
+      x.modifications.push({at:nowIso(),type:"EARLY_EXIT",price:px,movePct:move,pullback});
+      const p=getPerf();p.push({...x});setJson(PERF_KEY,p.slice(-2000));changed=true;
+      log(`조기청산 ${x.symbol} ${x.direction} P/L=${move.toFixed(3)}%`);
+      alertManage(x,"수익보호 청산","수익 상태에서 5m·15m 모멘텀이 약화되고 고점 대비 되밀림이 발생했습니다.");
+      continue;
+    }
+
+    const sl=x.direction==="LONG"?px<=x.stopPrice:px>=x.stopPrice;
+    const tp=x.direction==="LONG"?px>=x.targetPrice:px<=x.targetPrice;
+
+    if(sl||tp||age>=MAX_TRADE_MIN){
+      x.closed=true;x.closedAt=nowIso();x.exitPrice=tp?x.targetPrice:sl?x.stopPrice:px;
+      x.exitReason=tp?"TP":sl?"SL":"TIMEOUT";
+      x.result=tp?"WIN":sl?"LOSS":"TIMEOUT";
+      x.realizedPct=pctMove(x.entryPrice,x.exitPrice,x.direction);
+      const p=getPerf();p.push({...x});setJson(PERF_KEY,p.slice(-2000));changed=true;
+      log(`가상매매 종료 ${x.symbol} ${x.direction} ${x.result} exit=${x.exitPrice}`);
+      alertClosed(x);
+    }
+  }
+
+  if(changed) setJson(TRACK_KEY,tracks.slice(-500));
+  renderPerformance();
+}
+function renderSignal(symbol){
+  const s=signalCalc(symbol);
+  if(!s) return null;
+  document.getElementById(`score-${symbol}`).textContent=s.score;
+  const d=document.getElementById(`dir-${symbol}`);
+  d.textContent=s.dir;d.className=`score ${s.dir==="LONG"?"long":s.dir==="SHORT"?"short":"neu"}`;
+  const st=document.getElementById(`status-${symbol}`);
+  st.textContent=s.status;st.className=`badge ${statusClass(s.status)}`;
+  document.getElementById(`c4h-${symbol}`).innerHTML=checkText(s.checks.h4);
+  document.getElementById(`c1h-${symbol}`).innerHTML=checkText(s.checks.h1);
+  document.getElementById(`c15-${symbol}`).innerHTML=checkText(s.checks.m15);
+  document.getElementById(`c5-${symbol}`).innerHTML=checkText(s.checks.m5);
+  document.getElementById(`c1-${symbol}`).innerHTML=checkText(s.checks.m1);
+  maybeRecordSignal(symbol,s);
+  return s;
+}
+
+function latestForSymbol(symbol){
+  const perf=getPerf().filter(x=>x.symbol===symbol);
+  return perf.at(-1)||null;
+}
+function activeForSymbol(symbol){
+  return getTracks().filter(x=>x.symbol===symbol&&!x.closed);
+}
+
+function currentOpenTrade(symbol){
+  return getTracks().find(x=>x.symbol===symbol&&!x.closed)||null;
+}
+function latestClosedTrade(symbol){
+  const p=getPerf().filter(x=>x.symbol===symbol);
+  return p.at(-1)||null;
+}
+function renderTradeBox(symbol){
+  const open=currentOpenTrade(symbol);
+  const closed=latestClosedTrade(symbol);
+  const px=Number(tickerCache[symbol]?.lastPrice||analyze(store[symbol]["1"])?.close||0);
+  const state=document.getElementById(`tstate-${symbol}`);
+  const entry=document.getElementById(`tentry-${symbol}`);
+  const sl=document.getElementById(`tsl-${symbol}`);
+  const tp=document.getElementById(`ttp-${symbol}`);
+  const rr=document.getElementById(`trr-${symbol}`);
+  const pl=document.getElementById(`tpl-${symbol}`);
+  const manage=document.getElementById(`tmanage-${symbol}`);
+  const mods=document.getElementById(`tmods-${symbol}`);
+
+  if(open){
+    state.textContent=running?"OPEN":"복구 대기";
+    state.className="openTag";
+    entry.textContent=fmt(open.entryPrice);
+    sl.textContent=fmt(open.stopPrice);
+    tp.textContent=fmt(open.targetPrice);
+    rr.textContent=`1:${open.rr}`;
+    const mv=px?pctMove(open.entryPrice,px,open.direction):0;
+    pl.textContent=`${mv>=0?"+":""}${mv.toFixed(3)}%`;
+    pl.className=mv>=0?"winTag":"lossTag";
+    manage.textContent=open.managementState||"HOLD";
+    manage.className=open.managementState==="EXTEND"?"manageTag manageExtend":"manageTag manageHold";
+    mods.textContent=(open.modifications||[]).length;
+    return;
+  }
+
+  if(closed){
+    state.textContent=closed.result||"-";
+    state.className=closed.result==="WIN"?"winTag":closed.result==="LOSS"?"lossTag":"";
+    entry.textContent=fmt(closed.entryPrice);
+    sl.textContent=fmt(closed.stopPrice);
+    tp.textContent=fmt(closed.targetPrice);
+    rr.textContent=`1:${closed.rr}`;
+    const rp=closed.realizedPct;
+    pl.textContent=rp===undefined?"-":`${rp>=0?"+":""}${rp.toFixed(3)}%`;
+    pl.className=rp>=0?"winTag":"lossTag";
+    manage.textContent=closed.managementState||closed.exitReason||"-";
+    manage.className=closed.result==="WIN_EARLY"?"manageTag manageExit":"manageTag manageHold";
+    mods.textContent=(closed.modifications||[]).length;
+    return;
+  }
+
+  state.textContent="-"; entry.textContent="-"; sl.textContent="-"; tp.textContent="-"; rr.textContent="-"; pl.textContent="-"; manage.textContent="-"; mods.textContent="0";
+}
+
+function renderPerformance(){
+  const tracks=getTracks();
+  const active=tracks.filter(x=>!x.closed);
+  document.getElementById("activeTracks").textContent=active.length;
+  SYMBOLS.forEach(s=>document.getElementById(`track-${s}`).textContent=active.filter(x=>x.symbol===s).length);
+
+  const perf=getPerf();
+  const closed=perf.length;
+  const wins=perf.filter(x=>["WIN","WIN_EARLY","WIN_MOMENTUM"].includes(x.result)).length;
+  const losses=perf.filter(x=>["LOSS","LOSS_MOMENTUM"].includes(x.result)).length;
+  const timeouts=perf.filter(x=>x.result==="TIMEOUT").length;
+  const decided=wins+losses;
+  document.getElementById("closedCount").textContent=closed;
+  document.getElementById("winCount").textContent=wins;
+  document.getElementById("lossCount").textContent=losses;
+  document.getElementById("winRate").textContent=decided?`${(wins/decided*100).toFixed(1)}%`:"-";
+  document.getElementById("avgMFE").textContent=closed?`${(perf.reduce((a,b)=>a+b.mfe,0)/closed).toFixed(3)}%`:"-";
+  document.getElementById("avgMAE").textContent=closed?`${(perf.reduce((a,b)=>a+b.mae,0)/closed).toFixed(3)}%`:"-";
+
+  SYMBOLS.forEach(symbol=>{
+    renderTradeBox(symbol);
+    const last=latestForSymbol(symbol);
+    if(!last){
+      [5,15,30,60].forEach(h=>document.getElementById(`p${h}-${symbol}`).textContent="-");
+      document.getElementById(`plast-${symbol}`).textContent="-";
+      return;
+    }
+    [5,15,30,60].forEach(h=>{
+      const v=last.snapshots?.[h]?.movePct;
+      document.getElementById(`p${h}-${symbol}`).textContent=v===undefined?"-":`${v>=0?"+":""}${v.toFixed(3)}%`;
+    });
+    document.getElementById(`plast-${symbol}`).textContent=last.result||"-";
+  });
+
+  document.getElementById("perfText").textContent=`추적 ${active.length} / 완료 ${closed}`;
+  renderPerformanceLog();
+}
+
+function renderAll(){
+  let best=null;
+  SYMBOLS.forEach(symbol=>{
+    TFS.forEach(tf=>renderTF(symbol,tf.key));
+    const s=renderSignal(symbol);
+    if(s&&(!best||s.score>best.s.score)) best={symbol,s};
+  });
+  if(best){
+    document.getElementById("leaderSymbol").textContent=best.symbol;
+    const de=document.getElementById("leaderDir");
+    de.textContent=best.s.dir;de.className=`big ${best.s.dir==="LONG"?"long":best.s.dir==="SHORT"?"short":"neu"}`;
+    document.getElementById("leaderScore").textContent=best.s.score;
+    document.getElementById("leaderStatus").textContent=best.s.status;
+  }
+  document.getElementById("engineText").textContent=`실시간 판정 · 주요 ${SYMBOLS.length}종목`;
+  renderPerformance();
+}
+function updateLeader(){
+  let best=null;
+  SYMBOLS.forEach(symbol=>{
+    const s=signalCalc(symbol);
+    if(s&&(!best||s.score>best.s.score)) best={symbol,s};
+  });
+  if(best){
+    document.getElementById("leaderSymbol").textContent=best.symbol;
+    document.getElementById("leaderDir").textContent=best.s.dir;
+    document.getElementById("leaderScore").textContent=best.s.score;
+    document.getElementById("leaderStatus").textContent=best.s.status;
+  }
+}
+
+function renderTicker(symbol,t){
+  tickerCache[symbol]=Object.assign({},tickerCache[symbol]||{},t||{});
+  const x=tickerCache[symbol];
+  if(x.lastPrice!==undefined) document.getElementById(`px-${symbol}`).textContent=fmt(x.lastPrice);
+  if(x.price24hPcnt!==undefined){
+    const p=Number(x.price24hPcnt)*100,e=document.getElementById(`chg-${symbol}`);
+    e.className=`change ${pctClass(p)}`;
+    e.textContent=`24h ${p>=0?"+":""}${p.toFixed(2)}%`;
+  }
+}
+
+function normalizeRestRow(r){
+  return {start:Number(r[0]),open:Number(r[1]),high:Number(r[2]),low:Number(r[3]),close:Number(r[4]),volume:Number(r[5]),turnover:Number(r[6]||0),confirm:true};
+}
+function normalizeWsRow(r){
+  return {start:Number(r.start),open:Number(r.open),high:Number(r.high),low:Number(r.low),close:Number(r.close),volume:Number(r.volume),turnover:Number(r.turnover||0),confirm:!!r.confirm};
+}
+function upsertCandle(symbol,interval,candle){
+  const arr=store[symbol][interval],idx=arr.findIndex(x=>x.start===candle.start);
+  if(idx>=0) arr[idx]=candle;
+  else{
+    arr.push(candle);arr.sort((a,b)=>a.start-b.start);
+    if(arr.length>LIMIT) arr.splice(0,arr.length-LIMIT);
+  }
+  renderTF(symbol,interval);
+  renderSignal(symbol);
+  updateLeader();
+  updateTracks();
+}
+
+async function fetchHistory(symbol,interval){
+  const url=`https://api.bybit.com/v5/market/kline?category=linear&symbol=${symbol}&interval=${interval}&limit=${LIMIT}`;
+  const r=await fetch(url,{cache:"no-store"});
+  if(!r.ok) throw new Error(`${symbol} ${interval} HTTP ${r.status}`);
+  const j=await r.json();
+  if(j.retCode!==0||!j.result||!Array.isArray(j.result.list)) throw new Error(`${symbol} ${interval} retCode=${j.retCode}`);
+  store[symbol][interval]=j.result.list.map(normalizeRestRow).sort((a,b)=>a.start-b.start).slice(-LIMIT);
+  loadedHistory++;
+  document.getElementById("historyText").textContent=`${loadedHistory} / ${SYMBOLS.length*TFS.length}`;
+  renderTF(symbol,interval);
+}
+async function loadAllHistory(){
+  loadedHistory=0;
+  const jobs=[];SYMBOLS.forEach(s=>TFS.forEach(tf=>jobs.push({s,tf:tf.key})));
+  for(let i=0;i<jobs.length;i+=4){
+    const b=jobs.slice(i,i+4);
+    const rs=await Promise.allSettled(b.map(x=>fetchHistory(x.s,x.tf)));
+    rs.forEach((r,k)=>{if(r.status==="rejected")log(`과거봉 실패 ${b[k].s} ${b[k].tf}: ${r.reason}`);});
+    await new Promise(res=>setTimeout(res,180));
+  }
+  renderAll();
+  if(loadedHistory===SYMBOLS.length*TFS.length) showOk(`Step 11 준비 완료 · ${SYMBOLS.length}종목 감시`);
+  else showErr(`과거봉 ${loadedHistory}/${SYMBOLS.length*TFS.length}만 로딩됨`);
+}
+
+function connectWS(){
+  if(!running) return;
+  clearErr();
+  document.getElementById("connText").textContent="연결 중";
+  document.getElementById("statusText").textContent="연결 중";
+  ws=new WebSocket("wss://stream.bybit.com/v5/public/linear");
+
+  ws.onopen=()=>{
+    document.getElementById("connText").textContent="연결됨";
+    document.getElementById("statusText").textContent="감시 중";
+    const topics=[];
+    SYMBOLS.forEach(s=>{
+      topics.push(`tickers.${s}`);
+      TFS.forEach(tf=>topics.push(`kline.${tf.key}.${s}`));
+    });
+    for(let i=0;i<topics.length;i+=10) ws.send(JSON.stringify({op:"subscribe",args:topics.slice(i,i+10)}));
+    pingTimer=setInterval(()=>{
+      if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({op:"ping"}));
+      updateTracks();
+    },20000);
+    log(`WebSocket 구독 ${topics.length}개`);
+  };
+
+  ws.onmessage=(event)=>{
+    document.getElementById("lastUpdate").textContent=new Date().toLocaleTimeString("ko-KR");
+    let m;try{m=JSON.parse(event.data);}catch(e){return;}
+
+    if(m.topic?.startsWith("tickers.")&&m.data){
+      const s=m.topic.split(".")[1];
+      if(SYMBOLS.includes(s)){
+        renderTicker(s,m.data);
+        updateTracks();
+      }
+      return;
+    }
+
+    if(m.topic?.startsWith("kline.")&&Array.isArray(m.data)){
+      const p=m.topic.split("."),interval=p[1],symbol=p[2];
+      if(!SYMBOLS.includes(symbol)) return;
+      m.data.forEach(row=>upsertCandle(symbol,interval,normalizeWsRow(row)));
+    }
+  };
+
+  ws.onerror=()=>{
+    document.getElementById("connText").textContent="오류";
+    document.getElementById("statusText").textContent="오류";
+    showErr("Bybit WebSocket 오류");
+  };
+
+  ws.onclose=()=>{
+    if(pingTimer){clearInterval(pingTimer);pingTimer=null;}
+    document.getElementById("connText").textContent="끊김";
+    if(running){
+      document.getElementById("statusText").textContent="재연결 대기";
+      reconnectTimer=setTimeout(connectWS,3000);
+    }else document.getElementById("statusText").textContent="대기";
+  };
+}
+
+async function start(){
+  if(running) return;
+  unlockAudio();
+  running=true;clearErr();
+  const b=document.getElementById("startBtn");b.textContent="감시 중지";b.classList.add("danger");
+  document.getElementById("statusText").textContent="과거봉 로딩";
+  document.getElementById("engineText").textContent="준비 중";
+  document.getElementById("perfText").textContent="준비 중";
+  log("Step 11.1 감시 시작");
+  makeUI();
+  renderAll();
+  await loadAllHistory();
+  connectWS();
+}
+function stop(){
+  running=false;
+  if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;}
+  if(pingTimer){clearInterval(pingTimer);pingTimer=null;}
+  if(ws){try{ws.close();}catch(e){}ws=null;}
+  const b=document.getElementById("startBtn");b.textContent="감시 시작";b.classList.remove("danger");
+  document.getElementById("statusText").textContent="중지";
+  document.getElementById("connText").textContent="끊김";
+  document.getElementById("engineText").textContent="중지";
+}
+function renderSignalLog(){
+  const arr=getSignals().slice(-60).reverse();
+  document.getElementById("signalLog").textContent=arr.map(x=>
+    `${x.ts} | ${x.symbol} | ${x.direction} | ${x.status} | ${x.score} | ${x.price}`
+  ).join("\n")||"아직 기록 없음";
+}
+function renderPerformanceLog(){
+  const active=getTracks().filter(x=>!x.closed).slice(-30).reverse();
+  const closed=getPerf().slice(-30).reverse();
+  const a=active.map(x=>{
+    const age=((Date.now()-new Date(x.startedAt).getTime())/60000).toFixed(1);
+    return `OPEN | ${x.symbol} ${x.direction} score=${x.scoreAtStart} entry=${fmt(x.entryPrice)} SL=${fmt(x.stopPrice)} TP=${fmt(x.targetPrice)} RR=1:${x.rr} manage=${x.managementState||"HOLD"} mods=${(x.modifications||[]).length} age=${age}m MFE=${x.mfe.toFixed(3)}% MAE=${x.mae.toFixed(3)}%`;
+  });
+  const c=closed.map(x=>
+    `CLOSED | ${x.symbol} ${x.direction} score=${x.scoreAtStart} ${x.result}/${x.exitReason} | entry=${fmt(x.entryPrice)} SL=${fmt(x.stopPrice)} TP=${fmt(x.targetPrice)} exit=${fmt(x.exitPrice)} P/L=${x.realizedPct?.toFixed?.(3)??"-"}% | manage=${x.managementState||"-"} mods=${(x.modifications||[]).length} | MFE=${x.mfe.toFixed(3)} MAE=${x.mae.toFixed(3)}`
+  );
+  document.getElementById("performanceLog").textContent=[...a,...c].join("\n")||"아직 성과 기록 없음";
+}
+function exportAll(){
+  const payload={
+    exportedAt:nowIso(),
+    signals:getSignals(),
+    activeTracks:getTracks(),
+    performance:getPerf(),
+    config:{horizons:HORIZONS,rrTarget:RR_TARGET,atrMult:ATR_MULT,minStopPct:MIN_STOP_PCT,maxStopPct:MAX_STOP_PCT,maxTradeMin:MAX_TRADE_MIN}
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=`bybit_step11_1_trade_export_${new Date().toISOString().replace(/[:.]/g,"-")}.json`;
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+function clearPerf(){
+  if(!confirm("Step 11.1 가상매매 기록과 OPEN 거래를 모두 초기화할까요?")) return;
+  localStorage.removeItem(PERF_KEY);
+  localStorage.removeItem(TRACK_KEY);
+  localStorage.removeItem(SIGNAL_KEY);
+  SYMBOLS.forEach(s=>lastSignalState[s]="");
+  renderSignalLog();renderPerformance();
+  showOk("성과 기록을 초기화했습니다.");
+}
+
+document.getElementById("startBtn").addEventListener("click",()=>running?stop():start());
+document.getElementById("exportBtn").addEventListener("click",exportAll);
+document.getElementById("clearBtn").addEventListener("click",clearPerf);
+document.getElementById("alertCloseBtn").addEventListener("click",closeAlert);
+document.getElementById("testAlertBtn").addEventListener("click",()=>{
+  unlockAudio();
+  beep("READY");
+  speakKo("알림 시험입니다. 음성 알림이 정상적으로 작동합니다.");
+  document.getElementById("alertTitle").textContent="알림 시험";
+  document.getElementById("alertBody").textContent="소리와 한국어 음성이 들리면 정상입니다.";
+  document.getElementById("alertOverlay").style.display="flex";
+});
+renderSignalLog();
+renderPerformance();
+</script>
+</body>
+</html>
