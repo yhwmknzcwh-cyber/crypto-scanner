@@ -4,46 +4,51 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
-<title>15.5.0 강의 기반 Market Map 백테스트</title>
+<title>15.5.1 FVG Edge Decomposition</title>
 <style>
 :root{color-scheme:dark}
 *{box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b0f14;color:#eef3f8;margin:0}
-.wrap{max-width:1180px;margin:auto;padding:14px}
+.wrap{max-width:1220px;margin:auto;padding:12px}
 .top{position:sticky;top:0;z-index:10;background:#0b0f14ee;backdrop-filter:blur(8px);border-bottom:1px solid #28313a}
-.card{background:#131a22;border:1px solid #28313a;border-radius:14px;padding:14px;margin:10px 0}
+.card{background:#131a22;border:1px solid #28313a;border-radius:14px;padding:13px;margin:10px 0}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px}
 .mini{background:#0d131a;border:1px solid #28313a;border-radius:10px;padding:9px}
-.big{font-size:21px;font-weight:800}
+.big{font-size:20px;font-weight:800}
 .muted{font-size:12px;color:#97a8ba}
 label{display:block;font-size:12px;color:#a8b6c5;margin-bottom:4px}
-select,button{width:100%;min-height:44px;border-radius:10px;border:1px solid #344252;background:#0c1218;color:white;padding:8px;font-size:15px}
-button{font-weight:700}
+select,input,button{width:100%;min-height:44px;border-radius:10px;border:1px solid #344252;background:#0c1218;color:white;padding:8px;font-size:15px}
+button{font-weight:700;cursor:pointer}
 .progress{height:9px;background:#202a35;border-radius:99px;overflow:hidden}
 .progress>div{height:100%;width:0;background:#a6b8ca}
-pre{white-space:pre-wrap;word-break:break-word;background:#090d12;border-radius:10px;padding:10px;max-height:300px;overflow:auto;font-size:11px}
-table{width:100%;border-collapse:collapse;font-size:11px;min-width:740px}
+pre{white-space:pre-wrap;word-break:break-word;background:#090d12;border-radius:10px;padding:10px;max-height:320px;overflow:auto;font-size:11px}
+table{width:100%;border-collapse:collapse;font-size:11px;min-width:720px}
 th,td{padding:7px;border-bottom:1px solid #28313a;text-align:right}
 th:first-child,td:first-child{text-align:left}
 .tags{display:flex;flex-wrap:wrap;gap:5px}
 .tag{font-size:11px;border:1px solid #344252;border-radius:999px;padding:5px 8px}
 .good{color:#79e5a6}.bad{color:#ff9999}
-@media(max-width:700px){.wrap{padding:9px}.card{padding:11px}.big{font-size:19px}}
+.section-title{display:flex;justify-content:space-between;align-items:end;gap:10px}
+@media(max-width:700px){.wrap{padding:8px}.card{padding:10px}.big{font-size:18px}.section-title{display:block}}
 </style>
 </head>
 <body>
-<div class="top"><div class="wrap"><b>STEP 15.5.0 · iPad / GitHub Pages</b><div class="muted">강의 + 실제 매매영상 기반 Market Map 연구 · 1R 정규화</div></div></div>
+<div class="top"><div class="wrap"><b>STEP 15.5.1 · FVG EDGE DECOMPOSITION</b><div class="muted">iPad / GitHub Pages · 90일 · 강의/실전영상 기반 FVG 연구</div></div></div>
 <div class="wrap">
 
 <div class="card">
-<div class="muted">GitHub Pages에서 바로 실행합니다. PowerShell/PC 서버가 필요 없습니다.</div>
+<div class="muted">
+15.5.0에서 상대적으로 가장 강했던 FVG Rebalancing의 엣지가 어디에서 발생하는지 분해합니다.
+같은 FVG를 매 15분마다 새 거래로 중복 집계하지 않고 <b>FVG 생성 시점별 최초 유효 반응 1회</b>만 기록합니다.
+승률·RR·하루 승리 횟수는 사전 진입 Gate가 아니라 결과 분석값입니다.
+</div>
 <div class="grid" style="margin-top:10px">
-<div><label>스캔 종목 수</label><select id="universe"><option>8</option><option selected>12</option><option>16</option><option>20</option></select></div>
+<div><label>유동성 상위 종목 수</label><select id="universe"><option>8</option><option selected>12</option><option>16</option><option>20</option></select></div>
 <div><label>기간</label><select id="days"><option>30</option><option>60</option><option selected>90</option></select></div>
-<div><label>평가 간격</label><select id="stride"><option value="1">5분</option><option value="3" selected>15분</option><option value="6">30분</option></select></div>
+<div><label>평가 간격</label><select id="stride"><option value="1">5분</option><option value="3" selected>15분</option></select></div>
 </div>
 <div class="grid" style="margin-top:9px">
-<button id="startBtn">백테스트 시작</button>
+<button id="startBtn">FVG 분해 백테스트 시작</button>
 <button id="stopBtn">중지</button>
 <button id="exportBtn">결과 JSON 저장</button>
 </div>
@@ -53,28 +58,40 @@ th:first-child,td:first-child{text-align:left}
 <div class="grid">
 <div class="mini"><div class="muted">종목</div><div class="big" id="mSymbols">0</div></div>
 <div class="mini"><div class="muted">5분봉</div><div class="big" id="mCandles">0</div></div>
-<div class="mini"><div class="muted">후보시점</div><div class="big" id="mCandidates">0</div></div>
-<div class="mini"><div class="muted">거래</div><div class="big" id="mTrades">0</div></div>
+<div class="mini"><div class="muted">고유 FVG</div><div class="big" id="mZones">0</div></div>
+<div class="mini"><div class="muted">실제 거래</div><div class="big" id="mTrades">0</div></div>
 <div class="mini"><div class="muted">승리/일</div><div class="big" id="mWinsDay">0</div></div>
 <div class="mini"><div class="muted">승률</div><div class="big" id="mWinRate">0%</div></div>
+<div class="mini"><div class="muted">EV</div><div class="big" id="mEV">0R</div></div>
+<div class="mini"><div class="muted">PF</div><div class="big" id="mPF">0</div></div>
 </div>
 <div class="progress" style="margin-top:10px"><div id="bar"></div></div>
 <div id="status" class="muted" style="margin-top:6px">대기</div>
 </div>
 
 <div class="card">
-<b>연구 셋업</b>
-<div id="setupTags" class="tags" style="margin-top:8px"></div>
+<div class="section-title"><b>핵심 분해 · Timeframe</b><span class="muted">1H FVG vs 15M FVG</span></div>
+<div style="overflow:auto;margin-top:8px"><table id="tfTable"><thead><tr><th>구분</th><th>N</th><th>승률</th><th>EV</th><th>PF</th><th>평균 RR</th><th>승리/일</th></tr></thead><tbody></tbody></table></div>
 </div>
 
 <div class="card">
-<b>셋업별 결과</b>
-<div style="overflow:auto;margin-top:8px">
-<table id="resultTable">
-<thead><tr><th>Setup</th><th>N</th><th>승률</th><th>EV</th><th>PF</th><th>승리/일</th><th>평균보유</th></tr></thead>
-<tbody></tbody>
-</table>
+<div class="section-title"><b>방향 · HTF 문맥</b><span class="muted">LONG/SHORT 및 1H·4H 추세 관계</span></div>
+<div style="overflow:auto;margin-top:8px"><table id="contextTable"><thead><tr><th>구분</th><th>N</th><th>승률</th><th>EV</th><th>PF</th><th>평균 RR</th></tr></thead><tbody></tbody></table></div>
 </div>
+
+<div class="card">
+<div class="section-title"><b>추가 근거 Attribution</b><span class="muted">진입 Gate가 아니라 사후 성과 비교</span></div>
+<div style="overflow:auto;margin-top:8px"><table id="tagTable"><thead><tr><th>근거</th><th>N</th><th>승률</th><th>EV</th><th>PF</th><th>평균 RR</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="card">
+<div class="section-title"><b>RR 구간</b><span class="muted">목표구조/구조적 SL로 자연 발생한 RR</span></div>
+<div style="overflow:auto;margin-top:8px"><table id="rrTable"><thead><tr><th>RR band</th><th>N</th><th>승률</th><th>EV</th><th>PF</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="card">
+<div class="section-title"><b>종목별</b><span class="muted">특정 종목 의존 여부 확인</span></div>
+<div style="overflow:auto;margin-top:8px"><table id="symbolTable"><thead><tr><th>종목</th><th>N</th><th>승률</th><th>EV</th><th>PF</th><th>승리/일</th></tr></thead><tbody></tbody></table></div>
 </div>
 
 <div class="card">
@@ -84,193 +101,271 @@ th:first-child,td:first-child{text-align:left}
 </div>
 
 <script>
-const VERSION="STEP15_5_0_IPAD_GITHUB_PAGES_V1";
+const VERSION="STEP15_5_1_FVG_EDGE_DECOMPOSITION_IPAD_V1";
 let stopped=false,lastExport=null;
 const $=id=>document.getElementById(id), n=x=>Number(x)||0;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function log(s){const e=$("log");e.textContent+=s+"\n";e.scrollTop=e.scrollHeight}
 function setStatus(s,p){$("status").textContent=s;if(Number.isFinite(p))$("bar").style.width=Math.max(0,Math.min(100,p))+"%"}
 
-const SETUPS=[
-{id:"CHANNEL_4TH_TOUCH",name:"Channel 4th-touch Reversal"},
-{id:"CHANNEL_FAKEOUT",name:"Channel Fakeout / Trap"},
-{id:"OB_REVERSAL",name:"Meaningful OB Reversal"},
-{id:"FVG_REBALANCE",name:"FVG Rebalancing"},
-{id:"SR_FLIP",name:"SR Flip Retest"},
-{id:"DIAGONAL_BREAK",name:"Trendline/Diagonal Break-Retest"},
-{id:"CONFLUENCE_ZONE",name:"HTF Confluence Zone"},
-{id:"CONTINUATION_RETEST",name:"Continuation Retest"}
-];
-
-function bybitUrl(path,params){
- const q=new URLSearchParams(params||{});
- return `https://api.bybit.com${path}?${q.toString()}`;
-}
+function bybitUrl(path,params){const q=new URLSearchParams(params||{});return `https://api.bybit.com${path}?${q}`}
 async function fetchJsonWithFallback(url){
- const tries=[
-   url,
-   `https://corsproxy.io/?url=${encodeURIComponent(url)}`
- ];
+ const tries=[url,`https://corsproxy.io/?url=${encodeURIComponent(url)}`];
  let last="";
  for(const u of tries){
-   try{
-     const r=await fetch(u,{cache:"no-store"});
-     if(!r.ok){last=`HTTP ${r.status}: ${await r.text()}`;continue}
-     return await r.json();
-   }catch(e){last=e?.message||String(e)}
+  try{const r=await fetch(u,{cache:"no-store"});if(!r.ok){last=`HTTP ${r.status}`;continue}return await r.json()}
+  catch(e){last=e?.message||String(e)}
  }
  throw new Error(`데이터 요청 실패: ${last}`);
 }
-async function apiTickers(){
- return fetchJsonWithFallback(bybitUrl("/v5/market/tickers",{category:"linear"}));
-}
-async function apiKline(params){
- return fetchJsonWithFallback(bybitUrl("/v5/market/kline",{category:"linear",...params}));
-}
+async function apiTickers(){return fetchJsonWithFallback(bybitUrl("/v5/market/tickers",{category:"linear"}))}
+async function apiKline(params){return fetchJsonWithFallback(bybitUrl("/v5/market/kline",{category:"linear",...params}))}
 async function getUniverse(count){
- const j=await apiTickers();
- if(j.retCode!==0)throw new Error(j.retMsg||"ticker error");
- return (j.result?.list||[])
- .filter(x=>x.symbol?.endsWith("USDT")&&!x.symbol.includes("-"))
- .map(x=>({symbol:x.symbol,turnover:n(x.turnover24h)}))
- .filter(x=>x.turnover>0).sort((a,b)=>b.turnover-a.turnover).slice(0,count).map(x=>x.symbol);
+ const j=await apiTickers();if(j.retCode!==0)throw new Error(j.retMsg||"ticker error");
+ return (j.result?.list||[]).filter(x=>x.symbol?.endsWith("USDT")&&!x.symbol.includes("-"))
+ .map(x=>({symbol:x.symbol,turnover:n(x.turnover24h)})).filter(x=>x.turnover>0)
+ .sort((a,b)=>b.turnover-a.turnover).slice(0,count).map(x=>x.symbol)
 }
 async function fetchKlines(symbol,days){
- const end=Date.now(),start=end-days*86400000;
- let cursor=end,all=[],loops=0;
+ const end=Date.now(),start=end-days*86400000;let cursor=end,all=[],loops=0;
  while(cursor>start&&!stopped){
-   const j=await apiKline({symbol,interval:"5",end:String(cursor),limit:"1000"});
-   if(j.retCode!==0)throw new Error(`${symbol}: ${j.retMsg}`);
-   const rows=j.result?.list||[];if(!rows.length)break;
-   for(const r of rows){
-     const x={t:n(r[0]),o:n(r[1]),h:n(r[2]),l:n(r[3]),c:n(r[4]),v:n(r[5]),turnover:n(r[6])};
-     if(x.t>=start&&x.t<=end)all.push(x);
-   }
-   let oldest=Infinity;for(const r of rows){const tt=n(r[0]);if(Number.isFinite(tt)&&tt<oldest)oldest=tt}
-   if(!Number.isFinite(oldest)||oldest>=cursor)break;
-   cursor=oldest-1;if(++loops>160)break;
-   await sleep(60);
+  const j=await apiKline({symbol,interval:"5",end:String(cursor),limit:"1000"});
+  if(j.retCode!==0)throw new Error(`${symbol}: ${j.retMsg}`);
+  const rows=j.result?.list||[];if(!rows.length)break;
+  for(const r of rows){const x={t:n(r[0]),o:n(r[1]),h:n(r[2]),l:n(r[3]),c:n(r[4]),v:n(r[5]),turnover:n(r[6])};if(x.t>=start&&x.t<=end)all.push(x)}
+  let oldest=Infinity;for(const r of rows){const tt=n(r[0]);if(Number.isFinite(tt)&&tt<oldest)oldest=tt}
+  if(!Number.isFinite(oldest)||oldest>=cursor)break;cursor=oldest-1;if(++loops>160)break;await sleep(55)
  }
- const m=new Map();for(const x of all)m.set(x.t,x);
- return [...m.values()].sort((a,b)=>a.t-b.t);
+ const m=new Map();for(const x of all)m.set(x.t,x);return [...m.values()].sort((a,b)=>a.t-b.t)
 }
 
 function mean(a){return a.length?a.reduce((s,x)=>s+x,0)/a.length:0}
 function ema(v,len){if(!v.length)return[];const k=2/(len+1),o=[v[0]];for(let i=1;i<v.length;i++)o.push(v[i]*k+o[i-1]*(1-k));return o}
 function atr(c,len=14){if(c.length<len+1)return 0;const a=[];for(let i=c.length-len;i<c.length;i++){const p=c[i-1],x=c[i];a.push(Math.max(x.h-x.l,Math.abs(x.h-p.c),Math.abs(x.l-p.c)))}return mean(a)}
-function aggregate(c,nbar){
- const out=[];for(let i=0;i<c.length;i+=nbar){const a=c.slice(i,i+nbar);if(a.length<nbar)break;out.push({t:a[0].t,o:a[0].o,h:Math.max(...a.map(x=>x.h)),l:Math.min(...a.map(x=>x.l)),c:a.at(-1).c,v:a.reduce((s,x)=>s+x.v,0),turnover:a.reduce((s,x)=>s+x.turnover,0)})}return out
+
+function aggregateClosed(c,tfMin,nowClose){
+ const ms=tfMin*60000,map=new Map();
+ for(const x of c){
+  const bucket=Math.floor(x.t/ms)*ms;
+  if(bucket+ms>nowClose)continue; // incomplete HTF candle excluded
+  let q=map.get(bucket);
+  if(!q)q={t:bucket,o:x.o,h:x.h,l:x.l,c:x.c,v:x.v,turnover:x.turnover};
+  else{q.h=Math.max(q.h,x.h);q.l=Math.min(q.l,x.l);q.c=x.c;q.v+=x.v;q.turnover+=x.turnover}
+  map.set(bucket,q)
+ }
+ return [...map.values()].sort((a,b)=>a.t-b.t)
 }
-function trendState(c){if(c.length<40)return 0;const cl=c.slice(-40).map(x=>x.c),e20=ema(cl,20),e35=ema(cl,35),a=e20.at(-1),b=e35.at(-1);return a>b*1.001?1:a<b*.999?-1:0}
-function pivots(c,look=96){
+function trendState(c){
+ if(c.length<40)return 0;const cl=c.slice(-40).map(x=>x.c),e20=ema(cl,20),e35=ema(cl,35),a=e20.at(-1),b=e35.at(-1);
+ return a>b*1.001?1:a<b*.999?-1:0
+}
+function pivots(c,look=120){
  const a=c.slice(-look),out=[];
  for(let i=2;i<a.length-2;i++){
-  if(a[i].h>a[i-1].h&&a[i].h>a[i-2].h&&a[i].h>=a[i+1].h&&a[i].h>=a[i+2].h)out.push({i,type:"H",p:a[i].h});
-  if(a[i].l<a[i-1].l&&a[i].l<a[i-2].l&&a[i].l<=a[i+1].l&&a[i].l<=a[i+2].l)out.push({i,type:"L",p:a[i].l});
+  if(a[i].h>a[i-1].h&&a[i].h>a[i-2].h&&a[i].h>=a[i+1].h&&a[i].h>=a[i+2].h)out.push({i,type:"H",p:a[i].h,t:a[i].t});
+  if(a[i].l<a[i-1].l&&a[i].l<a[i-2].l&&a[i].l<=a[i+1].l&&a[i].l<=a[i+2].l)out.push({i,type:"L",p:a[i].l,t:a[i].t});
  }return out
 }
-function lineByTwo(a,b){if(!a||!b||b.i===a.i)return null;const slope=(b.p-a.p)/(b.i-a.i);return {slope,at:i=>a.p+slope*(i-a.i)}}
+function lineByTwo(a,b){if(!a||!b||b.i===a.i)return null;const slope=(b.p-a.p)/(b.i-a.i);return{slope,at:i=>a.p+slope*(i-a.i)}}
 function channelMap(c){
- if(c.length<100)return null;
- const a=c.slice(-96),ps=pivots(a,96),hs=ps.filter(x=>x.type==="H").slice(-3),ls=ps.filter(x=>x.type==="L").slice(-3);
- if(hs.length<2||ls.length<2)return null;
- const hl=lineByTwo(hs.at(-2),hs.at(-1)),ll=lineByTwo(ls.at(-2),ls.at(-1));if(!hl||!ll)return null;
- const i=a.length-1,top=hl.at(i),bot=ll.at(i);if(!(top>bot))return null;
- const width=top-bot,px=a.at(-1).c,pos=(px-bot)/width;
- return {top,bot,mid:(top+bot)/2,width,pos,slope:(hl.slope+ll.slope)/2,touchesTop:hs.length,touchesBot:ls.length}
-}
-function fvgZone(c,dir){
- if(c.length<8)return null;
- for(let k=1;k<=14;k++){const i=c.length-1-k;if(i<2)break;const a=c[i-2],d=c[i];if(dir===1&&a.h<d.l)return{low:a.h,high:d.l};if(dir===-1&&a.l>d.h)return{low:d.h,high:a.l}}return null
+ if(c.length<80)return null;const a=c.slice(-96),ps=pivots(a,96),hs=ps.filter(x=>x.type==="H").slice(-3),ls=ps.filter(x=>x.type==="L").slice(-3);
+ if(hs.length<2||ls.length<2)return null;const hl=lineByTwo(hs.at(-2),hs.at(-1)),ll=lineByTwo(ls.at(-2),ls.at(-1));if(!hl||!ll)return null;
+ const i=a.length-1,top=hl.at(i),bot=ll.at(i);if(!(top>bot))return null;const width=top-bot;if(width<=0)return null;
+ return{top,bot,width,pos:(a.at(-1).c-bot)/width}
 }
 function obZone(c,dir){
- const a=c.slice(-24);for(let i=a.length-3;i>=2;i--){const x=a[i],q=a[i+1],opp=dir===1?x.c<x.o:x.c>x.o,disp=dir===1?q.c>q.o&&q.c>x.h:q.c<q.o&&q.c<x.l;if(opp&&disp)return{low:x.l,high:x.h}}return null
+ const a=c.slice(-30);for(let i=a.length-3;i>=2;i--){const x=a[i],q=a[i+1],opp=dir===1?x.c<x.o:x.c>x.o,disp=dir===1?q.c>q.o&&q.c>x.h:q.c<q.o&&q.c<x.l;if(opp&&disp)return{low:x.l,high:x.h,origin:x.t}}return null
 }
+function findFVGs(c,dir,limit=40){
+ const out=[],start=Math.max(2,c.length-limit);
+ for(let i=start;i<c.length;i++){
+  const a=c[i-2],d=c[i];
+  if(dir===1&&a.h<d.l)out.push({low:a.h,high:d.l,origin:d.t,dir});
+  if(dir===-1&&a.l>d.h)out.push({low:d.h,high:a.l,origin:d.t,dir});
+ }
+ return out
+}
+function srLevels(c){return pivots(c,140).slice(-16).map(x=>x.p)}
+function nearestLevel(px,levels){let b=null,d=Infinity;for(const l of levels){const q=Math.abs(l-px);if(q<d){d=q;b=l}}return b}
 function inZone(px,z,t=0){return !!z&&px>=z.low-t&&px<=z.high+t}
-function srLevels(c){return pivots(c,120).slice(-14).map(x=>x.p)}
-function nearestLevel(px,levels){let b=null,d=Infinity;for(const l of levels){const q=Math.abs(l-px);if(q<d){b=l;d=q}}return b}
-function mapMarket(c5,i){
- const h=c5.slice(Math.max(0,i-2300),i+1);if(h.length<1800)return null;
- const c15=aggregate(h,3),c60=aggregate(h,12),c240=aggregate(h,48),px=h.at(-1).c,a=atr(h,14)||0;
- return {h,c15,c60,c240,px,a,ch15:channelMap(c15),ch60:channelMap(c60),t1:trendState(c60),t4:trendState(c240),
- ob1u:obZone(c60,1),ob1d:obZone(c60,-1),fvg1u:fvgZone(c60,1),fvg1d:fvgZone(c60,-1),
- ob15u:obZone(c15,1),ob15d:obZone(c15,-1),fvg15u:fvgZone(c15,1),fvg15d:fvgZone(c15,-1),nearSR:nearestLevel(px,srLevels(c60))}
+
+function contextAt(c5,i){
+ const h=c5.slice(Math.max(0,i-2600),i+1);if(h.length<1900)return null;
+ const nowClose=h.at(-1).t+5*60000,c15=aggregateClosed(h,15,nowClose),c60=aggregateClosed(h,60,nowClose),c240=aggregateClosed(h,240,nowClose);
+ if(c15.length<50||c60.length<40||c240.length<20)return null;
+ const px=h.at(-1).c,a=atr(h,14)||0,ch=channelMap(c15),t1=trendState(c60),t4=trendState(c240);
+ const ob1u=obZone(c60,1),ob1d=obZone(c60,-1),ob15u=obZone(c15,1),ob15d=obZone(c15,-1),nearSR=nearestLevel(px,srLevels(c60));
+ return{h,c15,c60,c240,px,a,ch,t1,t4,ob1u,ob1d,ob15u,ob15d,nearSR,nowClose}
 }
-function candidateTags(m){
- const t=[],tol=m.a*.35;
- if(m.ch15&&(m.ch15.pos<.20||m.ch15.pos>.80))t.push("CHANNEL_EDGE");
- for(const [k,z] of Object.entries({OB1U:m.ob1u,OB1D:m.ob1d,FVG1U:m.fvg1u,FVG1D:m.fvg1d,OB15U:m.ob15u,OB15D:m.ob15d,FVG15U:m.fvg15u,FVG15D:m.fvg15d}))if(z&&inZone(m.px,z,tol))t.push(k);
- if(m.nearSR&&Math.abs(m.px-m.nearSR)<=tol)t.push("SR_NEAR");
- if(m.t1&&m.t4&&m.t1===m.t4)t.push("HTF_ALIGNED");
- return t
+function channelBand(ch){
+ if(!ch)return"NO_CHANNEL";
+ const p=ch.pos;
+ if(p<0)return"BELOW_CHANNEL";
+ if(p<=.20)return"LOWER_EDGE";
+ if(p<.80)return"MIDDLE";
+ if(p<=1)return"UPPER_EDGE";
+ return"ABOVE_CHANNEL"
 }
-function targetFromStructure(m,dir,entry){
- const levels=[m.nearSR,m.ch15?.top,m.ch15?.bot,m.ob1u?.high,m.ob1d?.low,m.fvg1u?.high,m.fvg1d?.low].filter(Number.isFinite);
- const valid=levels.filter(x=>dir===1?x>entry:x<entry).sort((a,b)=>Math.abs(a-entry)-Math.abs(b-entry));
- return valid[0]??(dir===1?entry+m.a*2:entry-m.a*2)
+function htfRelation(dir,t1,t4){
+ const aligned1=t1===dir,aligned4=t4===dir,opp1=t1===-dir,opp4=t4===-dir;
+ if(aligned1&&aligned4)return"1H+4H_ALIGNED";
+ if(aligned1)return"1H_ALIGNED";
+ if(aligned4)return"4H_ALIGNED";
+ if(opp1&&opp4)return"1H+4H_OPPOSED";
+ if(opp1||opp4)return"PARTLY_OPPOSED";
+ return"NEUTRAL_MIXED"
 }
-function setupSignals(m){
- const o=[],c=m.h,x=c.at(-1),p=c.at(-2),a=m.a,px=m.px,ch=m.ch15,tags=candidateTags(m);
- if(ch){
-  if(ch.touchesBot>=2&&x.l<=ch.bot+a*.25&&x.c>x.o&&x.c>ch.bot)o.push({setup:"CHANNEL_4TH_TOUCH",dir:1,entry:px,sl:Math.min(x.l,ch.bot-a*.1),target:ch.top,tags:[...tags,"CHANNEL_LOWER"]});
-  if(ch.touchesTop>=2&&x.h>=ch.top-a*.25&&x.c<x.o&&x.c<ch.top)o.push({setup:"CHANNEL_4TH_TOUCH",dir:-1,entry:px,sl:Math.max(x.h,ch.top+a*.1),target:ch.bot,tags:[...tags,"CHANNEL_UPPER"]});
-  if((p.l<ch.bot||x.l<ch.bot)&&x.c>ch.bot&&x.c>x.o)o.push({setup:"CHANNEL_FAKEOUT",dir:1,entry:px,sl:Math.min(p.l,x.l)-a*.1,target:ch.top,tags:[...tags,"FAKEOUT"]});
-  if((p.h>ch.top||x.h>ch.top)&&x.c<ch.top&&x.c<x.o)o.push({setup:"CHANNEL_FAKEOUT",dir:-1,entry:px,sl:Math.max(p.h,x.h)+a*.1,target:ch.bot,tags:[...tags,"FAKEOUT"]});
+function structureTarget(ctx,dir,entry){
+ const levels=[ctx.nearSR,ctx.ch?.top,ctx.ch?.bot,ctx.ob1u?.high,ctx.ob1d?.low,ctx.ob15u?.high,ctx.ob15d?.low].filter(Number.isFinite);
+ const v=levels.filter(x=>dir===1?x>entry:x<entry).sort((a,b)=>Math.abs(a-entry)-Math.abs(b-entry));
+ return v[0]??(dir===1?entry+ctx.a*2:entry-ctx.a*2)
+}
+function reactionOK(x,dir){return dir===1?x.c>x.o:x.c<x.o}
+
+function uniqueFVGSignals(c5,i,ctx,seen){
+ const out=[],x=c5[i],px=x.c,a=ctx.a;
+ for(const spec of [{tf:"1H",c:ctx.c60},{tf:"15M",c:ctx.c15}]){
+  for(const dir of [1,-1]){
+   const zones=findFVGs(spec.c,dir,45);
+   for(let zi=zones.length-1;zi>=0;zi--){
+    const z=zones[zi],key=`${spec.tf}|${dir}|${z.origin}|${z.low.toFixed(10)}|${z.high.toFixed(10)}`;
+    if(seen.has(key))continue;
+    if(!inZone(px,z,a*.20))continue;
+    if(!reactionOK(x,dir))continue;
+
+    const sameOB = dir===1 ? (inZone(px,ctx.ob1u,a*.25)||inZone(px,ctx.ob15u,a*.25)) : (inZone(px,ctx.ob1d,a*.25)||inZone(px,ctx.ob15d,a*.25));
+    const oppOB  = dir===1 ? (inZone(px,ctx.ob1d,a*.25)||inZone(px,ctx.ob15d,a*.25)) : (inZone(px,ctx.ob1u,a*.25)||inZone(px,ctx.ob15u,a*.25));
+    const srNear=Number.isFinite(ctx.nearSR)&&Math.abs(px-ctx.nearSR)<=a*.35;
+    const band=channelBand(ctx.ch);
+    const relation=htfRelation(dir,ctx.t1,ctx.t4);
+
+    const sl=dir===1?z.low-a*.15:z.high+a*.15;
+    const target=structureTarget(ctx,dir,px);
+    const risk=Math.abs(px-sl),rr=risk?Math.abs(target-px)/risk:0;
+    if(!risk||!Number.isFinite(rr)||rr<=0)continue;
+
+    seen.add(key);
+    out.push({
+      zoneKey:key,tf:spec.tf,dir,entry:px,sl,target,rr,
+      fvgLow:z.low,fvgHigh:z.high,fvgOrigin:z.origin,
+      sameOB,oppOB,srNear,channelBand:band,htfRelation:relation,
+      t1:ctx.t1,t4:ctx.t4,
+      kstHour:new Date(x.t+9*3600000).getUTCHours()
+    });
+    break; // one most-recent eligible FVG per tf/dir at this bar
+   }
+  }
  }
- for(const [dir,z] of [[1,m.ob1u],[-1,m.ob1d]])if(z&&inZone(px,z,a*.25)&&(dir===1?x.c>x.o:x.c<x.o))o.push({setup:"OB_REVERSAL",dir,entry:px,sl:dir===1?z.low-a*.1:z.high+a*.1,target:targetFromStructure(m,dir,px),tags:[...tags,"HTF_OB"]});
- for(const [dir,z,lab] of [[1,m.fvg1u,"1H_FVG"],[-1,m.fvg1d,"1H_FVG"],[1,m.fvg15u,"15M_FVG"],[-1,m.fvg15d,"15M_FVG"]])if(z&&inZone(px,z,a*.2)&&(dir===1?x.c>x.o:x.c<x.o))o.push({setup:"FVG_REBALANCE",dir,entry:px,sl:dir===1?z.low-a*.15:z.high+a*.15,target:targetFromStructure(m,dir,px),tags:[...tags,lab]});
- if(m.nearSR){
-  const L=m.nearSR,tol=a*.25,r=c.slice(-8,-1),up=r.some(q=>q.c>L+tol),dn=r.some(q=>q.c<L-tol);
-  if(up&&x.l<=L+tol&&x.c>L)o.push({setup:"SR_FLIP",dir:1,entry:px,sl:L-a*.5,target:targetFromStructure(m,1,px),tags:[...tags,"SR_FLIP"]});
-  if(dn&&x.h>=L-tol&&x.c<L)o.push({setup:"SR_FLIP",dir:-1,entry:px,sl:L+a*.5,target:targetFromStructure(m,-1,px),tags:[...tags,"SR_FLIP"]});
- }
- if(ch&&Math.abs(ch.slope)>ch.width*.002){
-  if(p.c>ch.top&&x.l<=ch.top+a*.25&&x.c>ch.top)o.push({setup:"DIAGONAL_BREAK",dir:1,entry:px,sl:ch.top-a*.5,target:targetFromStructure(m,1,px),tags:[...tags,"DIAGONAL"]});
-  if(p.c<ch.bot&&x.h>=ch.bot-a*.25&&x.c<ch.bot)o.push({setup:"DIAGONAL_BREAK",dir:-1,entry:px,sl:ch.bot+a*.5,target:targetFromStructure(m,-1,px),tags:[...tags,"DIAGONAL"]});
- }
- const bull=tags.filter(z=>/OB1U|FVG1U|OB15U|FVG15U|CHANNEL_EDGE|SR_NEAR/.test(z)).length,bear=tags.filter(z=>/OB1D|FVG1D|OB15D|FVG15D|CHANNEL_EDGE|SR_NEAR/.test(z)).length;
- if(bull>=2&&x.c>x.o)o.push({setup:"CONFLUENCE_ZONE",dir:1,entry:px,sl:px-a*1.2,target:targetFromStructure(m,1,px),tags:[...tags,"CONFLUENCE"]});
- if(bear>=2&&x.c<x.o)o.push({setup:"CONFLUENCE_ZONE",dir:-1,entry:px,sl:px+a*1.2,target:targetFromStructure(m,-1,px),tags:[...tags,"CONFLUENCE"]});
- if(m.t1===1&&(inZone(px,m.ob15u,a*.2)||inZone(px,m.fvg15u,a*.2))&&x.c>x.o)o.push({setup:"CONTINUATION_RETEST",dir:1,entry:px,sl:px-a*1.1,target:targetFromStructure(m,1,px),tags:[...tags,"TREND_CONT"]});
- if(m.t1===-1&&(inZone(px,m.ob15d,a*.2)||inZone(px,m.fvg15d,a*.2))&&x.c<x.o)o.push({setup:"CONTINUATION_RETEST",dir:-1,entry:px,sl:px+a*1.1,target:targetFromStructure(m,-1,px),tags:[...tags,"TREND_CONT"]});
- return o
+ return out
 }
 function simulate(c,i,s,maxBars=96){
- const risk=Math.abs(s.entry-s.sl);if(!risk)return null;const rr=Math.abs(s.target-s.entry)/risk;if(!Number.isFinite(rr)||rr<=0)return null;
- for(let j=i+1;j<Math.min(c.length,i+1+maxBars);j++){const q=c[j],sl=s.dir===1?q.l<=s.sl:q.h>=s.sl,tp=s.dir===1?q.h>=s.target:q.l<=s.target;if(sl&&tp)return{r:-1,bars:j-i,rr,reason:"BOTH_STOP_FIRST"};if(sl)return{r:-1,bars:j-i,rr,reason:"SL"};if(tp)return{r:rr,bars:j-i,rr,reason:"TARGET"}}
- const last=c[Math.min(c.length-1,i+maxBars)].c,r=s.dir===1?(last-s.entry)/risk:(s.entry-last)/risk;return{r:Math.max(-1,Math.min(rr,r)),bars:maxBars,rr,reason:"TIME"}
+ const risk=Math.abs(s.entry-s.sl);if(!risk)return null;
+ for(let j=i+1;j<Math.min(c.length,i+1+maxBars);j++){
+  const q=c[j],sl=s.dir===1?q.l<=s.sl:q.h>=s.sl,tp=s.dir===1?q.h>=s.target:q.l<=s.target;
+  if(sl&&tp)return{r:-1,bars:j-i,reason:"BOTH_STOP_FIRST"};
+  if(sl)return{r:-1,bars:j-i,reason:"SL"};
+  if(tp)return{r:s.rr,bars:j-i,reason:"TARGET"};
+ }
+ const last=c[Math.min(c.length-1,i+maxBars)].c,r=s.dir===1?(last-s.entry)/risk:(s.entry-last)/risk;
+ return{r:Math.max(-1,Math.min(s.rr,r)),bars:maxBars,reason:"TIME"}
 }
-function metrics(r){const w=r.filter(x=>x.r>0),l=r.filter(x=>x.r<=0),gw=w.reduce((s,x)=>s+x.r,0),gl=Math.abs(l.reduce((s,x)=>s+x.r,0));return{n:r.length,winRate:r.length?w.length/r.length*100:0,ev:mean(r.map(x=>x.r)),pf:gl?gw/gl:(gw?999:0),avgHold:mean(r.map(x=>x.holdMinutes))}}
-function summarize(trades,days){return SETUPS.map(s=>{const r=trades.filter(x=>x.setup===s.id),m=metrics(r);return{...s,...m,winsPerDay:r.filter(x=>x.r>0).length/Math.max(1,days)}})}
-function render(sum){const tb=$("resultTable").querySelector("tbody");tb.innerHTML="";for(const r of sum){const tr=document.createElement("tr");tr.innerHTML=`<td>${r.name}</td><td>${r.n}</td><td>${r.winRate.toFixed(1)}%</td><td>${r.ev.toFixed(3)}</td><td>${r.pf.toFixed(2)}</td><td>${r.winsPerDay.toFixed(2)}</td><td>${r.avgHold.toFixed(1)}m</td>`;tb.appendChild(tr)}}
+
+function metrics(rows){
+ const wins=rows.filter(x=>x.r>0),loss=rows.filter(x=>x.r<=0),gw=wins.reduce((s,x)=>s+x.r,0),gl=Math.abs(loss.reduce((s,x)=>s+x.r,0));
+ return{n:rows.length,winRate:rows.length?wins.length/rows.length*100:0,ev:mean(rows.map(x=>x.r)),pf:gl?gw/gl:(gw?999:0),avgRR:mean(rows.map(x=>x.rr)),avgHold:mean(rows.map(x=>x.holdMinutes)),wins:wins.length}
+}
+function groupRows(rows,keyFn,days){
+ const map=new Map();for(const r of rows){const k=keyFn(r);if(!map.has(k))map.set(k,[]);map.get(k).push(r)}
+ return [...map.entries()].map(([k,v])=>({key:k,...metrics(v),winsPerDay:v.filter(x=>x.r>0).length/Math.max(1,days)})).sort((a,b)=>b.n-a.n)
+}
+function rrBand(x){
+ if(x<.25)return"<0.25";
+ if(x<.5)return"0.25–0.49";
+ if(x<1)return"0.50–0.99";
+ if(x<1.5)return"1.00–1.49";
+ if(x<2)return"1.50–1.99";
+ if(x<3)return"2.00–2.99";
+ return"3.00+"
+}
+function tableFill(id,rows,cols){
+ const tb=$(id).querySelector("tbody");tb.innerHTML="";
+ for(const r of rows){const tr=document.createElement("tr");tr.innerHTML=cols.map(c=>`<td>${c(r)}</td>`).join("");tb.appendChild(tr)}
+}
+function renderAnalysis(trades,days){
+ const tf=groupRows(trades,r=>r.tf,days);
+ const context=[
+  ...groupRows(trades,r=>r.dir===1?"LONG":"SHORT",days),
+  ...groupRows(trades,r=>`HTF · ${r.htfRelation}`,days)
+ ];
+ const tagDefs=[
+  ["Same-direction OB",r=>r.sameOB],
+  ["No same-direction OB",r=>!r.sameOB],
+  ["Opposite OB present",r=>r.oppOB],
+  ["SR near",r=>r.srNear],
+  ["Channel lower edge",r=>r.channelBand==="LOWER_EDGE"],
+  ["Channel upper edge",r=>r.channelBand==="UPPER_EDGE"],
+  ["Channel middle",r=>r.channelBand==="MIDDLE"],
+  ["Outside channel",r=>/ABOVE|BELOW/.test(r.channelBand)]
+ ];
+ const tags=tagDefs.map(([key,fn])=>{const v=trades.filter(fn);return{key,...metrics(v)}}).sort((a,b)=>b.n-a.n);
+ const rr=groupRows(trades,r=>rrBand(r.rr),days);
+ const sy=groupRows(trades,r=>r.symbol,days);
+
+ tableFill("tfTable",tf,[r=>r.key,r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2),r=>r.avgRR.toFixed(2),r=>r.winsPerDay.toFixed(2)]);
+ tableFill("contextTable",context,[r=>r.key,r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2),r=>r.avgRR.toFixed(2)]);
+ tableFill("tagTable",tags,[r=>r.key,r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2),r=>r.avgRR.toFixed(2)]);
+ tableFill("rrTable",rr,[r=>r.key,r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2)]);
+ tableFill("symbolTable",sy,[r=>r.key,r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2),r=>r.winsPerDay.toFixed(2)]);
+ return{byTimeframe:tf,byContext:context,byTag:tags,byRR:rr,bySymbol:sy}
+}
+
 async function run(){
  stopped=false;$("log").textContent="";setStatus("시작",1);
  const universe=n($("universe").value),days=n($("days").value),stride=n($("stride").value);
  try{
   const symbols=await getUniverse(universe);$("mSymbols").textContent=symbols.length;log("Universe: "+symbols.join(", "));
-  let total=0,candidates=0,trades=[],perSymbol={};
+  let totalCandles=0,totalZones=0,trades=[],perSymbol={};
   for(let si=0;si<symbols.length;si++){
-   if(stopped)break;const sym=symbols[si];setStatus(`${sym} 데이터 수집`,4+45*si/symbols.length);
-   const c=await fetchKlines(sym,days);total+=c.length;$("mCandles").textContent=total.toLocaleString();
-   let lt=0,lc=0;
-   for(let i=1800;i<c.length-96;i+=stride){
-    const m=mapMarket(c,i);if(!m)continue;const tags=candidateTags(m);if(tags.length){candidates++;lc++}
-    for(const s of setupSignals(m)){const q=simulate(c,i,s);if(!q)continue;trades.push({symbol:sym,t:c[i].t,setup:s.setup,dir:s.dir,entry:s.entry,sl:s.sl,target:s.target,rr:q.rr,r:q.r,reason:q.reason,holdMinutes:q.bars*5,tags:s.tags,market:{t1:m.t1,t4:m.t4,channelPos:m.ch15?.pos??null}});lt++}
+   if(stopped)break;
+   const sym=symbols[si];setStatus(`${sym} · ${days}일 데이터`,3+50*si/symbols.length);
+   const c=await fetchKlines(sym,days);totalCandles+=c.length;$("mCandles").textContent=totalCandles.toLocaleString();
+   const seen=new Set();let local=0;
+   for(let i=1900;i<c.length-96;i+=stride){
+    const ctx=contextAt(c,i);if(!ctx)continue;
+    const sigs=uniqueFVGSignals(c,i,ctx,seen);
+    for(const s of sigs){
+      totalZones++;
+      const q=simulate(c,i,s);if(!q)continue;
+      trades.push({symbol:sym,t:c[i].t,...s,r:q.r,reason:q.reason,holdMinutes:q.bars*5});
+      local++;
+    }
    }
-   perSymbol[sym]={candles:c.length,candidateMoments:lc,trades:lt};$("mCandidates").textContent=candidates.toLocaleString();$("mTrades").textContent=trades.length.toLocaleString();log(`${sym}: ${c.length} candles · candidates ${lc} · trades ${lt}`);
+   perSymbol[sym]={candles:c.length,uniqueFVGTrades:local};
+   $("mZones").textContent=totalZones.toLocaleString();$("mTrades").textContent=trades.length.toLocaleString();
+   log(`${sym}: ${c.length} candles · unique FVG trades ${local}`);
   }
   if(stopped){setStatus("중지됨",0);return}
-  const sum=summarize(trades,days);render(sum);const wins=trades.filter(x=>x.r>0).length,wr=trades.length?wins/trades.length*100:0,wday=wins/Math.max(1,days);
-  $("mWinsDay").textContent=wday.toFixed(2);$("mWinRate").textContent=wr.toFixed(1)+"%";
-  lastExport={version:VERSION,createdAt:new Date().toISOString(),config:{universe,days,stride,normalization:"1R",feesIncluded:false},symbols,perSymbol,totalCandles:total,candidateMoments:candidates,totalTrades:trades.length,overall:{wins,winRate:wr,winsPerDay:wday,metrics:metrics(trades)},bySetup:sum,trades:trades.slice(0,50000)};
-  setStatus(`완료 · ${trades.length} trades`,100);log(`완료 · 승률 ${wr.toFixed(1)}% · 승리/일 ${wday.toFixed(2)}`);
+
+  const all=metrics(trades),winsDay=all.wins/Math.max(1,days);
+  $("mWinsDay").textContent=winsDay.toFixed(2);$("mWinRate").textContent=all.winRate.toFixed(1)+"%";$("mEV").textContent=all.ev.toFixed(3)+"R";$("mPF").textContent=all.pf.toFixed(2);
+  const decomposition=renderAnalysis(trades,days);
+
+  lastExport={
+    version:VERSION,createdAt:new Date().toISOString(),
+    config:{universe,days,stride,normalization:"1R",feesIncluded:false,dedupe:"one trade per unique FVG origin/zone",higherTimeframes:"closed candles only"},
+    symbols,perSymbol,totalCandles,totalUniqueFVG:totalZones,totalTrades:trades.length,
+    overall:{...all,winsPerDay:winsDay},decomposition,
+    trades:trades.slice(0,50000)
+  };
+  setStatus(`완료 · ${trades.length} unique FVG trades`,100);
+  log(`완료 · N ${trades.length} · 승률 ${all.winRate.toFixed(1)}% · EV ${all.ev.toFixed(3)}R · PF ${all.pf.toFixed(2)} · 승리/일 ${winsDay.toFixed(2)}`);
  }catch(e){console.error(e);setStatus("오류 발생",0);log(`FATAL: ${e?.stack||e}`)}
 }
 function exportJson(){
  if(!lastExport){alert("먼저 백테스트를 실행하세요.");return}
- const b=new Blob([JSON.stringify(lastExport,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`step15_5_0_ipad_${new Date().toISOString().replace(/[:.]/g,"-")}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+ const b=new Blob([JSON.stringify(lastExport,null,2)],{type:"application/json"}),a=document.createElement("a");
+ a.href=URL.createObjectURL(b);a.download=`step15_5_1_fvg_decomp_${new Date().toISOString().replace(/[:.]/g,"-")}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
 }
-$("setupTags").innerHTML=SETUPS.map(x=>`<span class="tag">${x.name}</span>`).join("");
 $("startBtn").addEventListener("click",run);
 $("stopBtn").addEventListener("click",()=>{stopped=true;setStatus("중지 요청됨",0)});
 $("exportBtn").addEventListener("click",exportJson);
