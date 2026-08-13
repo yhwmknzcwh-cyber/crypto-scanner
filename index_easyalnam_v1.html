@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>쉽알남 강의 기반 백테스트 · Entry/Exit 검증</title>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#0b0f14;color:#eef3f8;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:1320px;margin:auto;padding:11px}
+.top{position:sticky;top:0;z-index:20;background:#0b0f14ee;backdrop-filter:blur(8px);border-bottom:1px solid #29333e}
+.card{background:#131a22;border:1px solid #29333e;border-radius:14px;padding:13px;margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px}
+.mini{background:#0d131a;border:1px solid #29333e;border-radius:10px;padding:9px}
+.big{font-size:20px;font-weight:800}
+.muted{font-size:12px;color:#97a8ba;line-height:1.45}
+label{display:block;color:#aab8c7;font-size:12px;margin-bottom:4px}
+select,button{width:100%;min-height:44px;border:1px solid #394858;border-radius:10px;background:#0c1218;color:#fff;padding:8px;font-size:15px}
+button{font-weight:750;cursor:pointer}
+.progress{height:9px;background:#202a35;border-radius:99px;overflow:hidden}
+.progress>div{height:100%;width:0;background:#a9bacb}
+table{width:100%;border-collapse:collapse;min-width:860px;font-size:11px}
+th,td{padding:7px;border-bottom:1px solid #29333e;text-align:right;vertical-align:top}
+th:first-child,td:first-child{text-align:left}
+pre{background:#090d12;border-radius:10px;padding:10px;max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-size:11px}
+.tags{display:flex;flex-wrap:wrap;gap:5px}
+.tag{border:1px solid #394858;border-radius:999px;padding:5px 8px;font-size:11px}
+.good{color:#77e5a6}.bad{color:#ff9999}.warn{color:#ffd27a}
+h3{margin:0 0 8px}
+@media(max-width:700px){.wrap{padding:8px}.card{padding:10px}.big{font-size:18px}}
+</style>
+</head>
+<body>
+<div class="top"><div class="wrap">
+<b>쉽알남 강의 기반 · Entry/Exit 백테스트</b>
+<div class="muted">iPad / GitHub Pages · 종목당 1포지션 · 비용 반영 · 시점별 종목선정</div>
+</div></div>
+
+<div class="wrap">
+<div class="card">
+<div class="muted">
+사진 강의 1~5장과 원본 영상 24편에서 학습한 매매 논리를 진입 규칙으로 사용하고, 동일한 Entry에서 A~G Exit를 병렬 비교합니다.
+핵심 Entry는 상위 시간봉 구조 → 현재 위치 → S/R·추세선·채널·OB·FVG·유동성 중첩 → 리테스트/Fake out·Trap/반응 확인 순으로 생성합니다. 같은 Entry를 A~G Exit에 동시에 가상 복제합니다.
+자리를 주지 않으면 거래하지 않으며, 돌파 직후 추격보다 구조 복귀·리테스트를 우선합니다. 포지션 종료 전 같은 종목 재진입을 금지하고 비용보다 작은 목표는 경제적 무효로 제외합니다.
+</div>
+<div class="grid" style="margin-top:10px">
+<div><label>유동성 상위 종목 수</label><select id="universe"><option>8</option><option selected>12</option><option>16</option><option>20</option></select></div>
+<div><label>기간</label><select id="days"><option>30</option><option>60</option><option selected>90</option></select></div>
+<div><label>평가 간격</label><select id="stride"><option value="1">5분</option><option value="3" selected>15분</option><option value="6">30분</option></select></div>
+</div>
+<div class="grid" style="margin-top:9px">
+<div><label>진입 수수료</label><select id="entryFee"><option value="0.00055" selected>Taker 0.055%</option><option value="0.00020">Maker 0.020%</option></select></div>
+<div><label>청산 수수료</label><select id="exitFee"><option value="0.00055" selected>Taker 0.055%</option><option value="0.00020">Maker 0.020%</option></select></div>
+<div><label>편도 슬리피지 가정</label><select id="slippage"><option value="0">0%</option><option value="0.0001" selected>0.01%</option><option value="0.0002">0.02%</option></select></div>
+</div>
+<div class="grid" style="margin-top:9px">
+<button id="startBtn">쉽알남 전략 백테스트 시작</button>
+<button id="stopBtn">중지</button>
+<button id="exportBtn">결과 JSON 저장</button>
+</div>
+</div>
+
+<div class="card">
+<h3>강의 원전 기준 Entry Doctrine</h3>
+<div class="muted">
+① 상위 시간봉 구조와 현재 위치를 먼저 본다 → ② S/R·추세선·채널·OB·FVG·유동성 중첩을 찾는다 →
+③ 가격이 그 자리까지 올 때까지 기다린다 → ④ 돌파 추격보다 리테스트·Fake out/Trap·구조 복귀를 확인한다 →
+⑤ 구조 무효점에 SL, 다음 반대 구조/유동성에 TP를 둔다. 단일 신호만으로는 진입하지 않는다.
+</div>
+<div class="tags" style="margin-top:8px">
+<span class="tag">HTF Structure</span><span class="tag">S/R</span><span class="tag">Trendline</span>
+<span class="tag">Channel</span><span class="tag">Order Block</span><span class="tag">FVG</span>
+<span class="tag">Liquidity</span><span class="tag">Fake out / Trap</span><span class="tag">Retest</span>
+</div>
+</div>
+
+<div class="card">
+<div class="grid">
+<div class="mini"><div class="muted">종목</div><div class="big" id="mSymbols">0</div></div>
+<div class="mini"><div class="muted">5분봉</div><div class="big" id="mCandles">0</div></div>
+<div class="mini"><div class="muted">실제 체결 거래</div><div class="big" id="mBaseTrades">0</div></div>
+<div class="mini"><div class="muted">복수근거 거래</div><div class="big" id="mComboTrades">0</div></div>
+<div class="mini"><div class="muted">비용/구조 무효</div><div class="big" id="mInvalid">0</div></div>
+<div class="mini"><div class="muted">극단 RR 감사</div><div class="big" id="mExtreme">0</div></div>
+<div class="mini"><div class="muted">전체 승률</div><div class="big" id="mWinRate">0%</div></div>
+<div class="mini"><div class="muted">순 EV (비용후)</div><div class="big" id="mEV">0R</div></div>
+</div>
+<div class="progress" style="margin-top:10px"><div id="bar"></div></div>
+<div id="status" class="muted" style="margin-top:6px">대기</div>
+</div>
+
+<div class="card">
+<h3>강의 기반 Entry Setup 8개</h3>
+<div id="setupTags" class="tags"></div>
+</div>
+
+<div class="card">
+<h3>① 동일 Entry · Exit A~G 비교</h3>
+<div style="overflow:auto"><table id="baseTable"><thead><tr>
+<th>Exit</th><th>N</th><th>승률</th><th>순EV</th><th>PF</th><th>승리/일</th><th>중앙 손익R</th><th>95% 손익R</th><th>평균보유</th>
+</tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="card">
+<h3>② 주 Setup별 최적 Exit</h3>
+<div class="muted">같은 시점·방향이며 구조 가격대가 겹치거나 진입가 기준 0.5ATR 이내인 근거만 조합합니다.</div>
+<div style="overflow:auto;margin-top:8px"><table id="pairTable"><thead><tr>
+<th>조합</th><th>N</th><th>승률</th><th>EV</th><th>PF</th><th>승리/일</th><th>단독대비 EV 개선</th>
+</tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="card">
+<h3>③ Confluence 조합별 Exit 성과</h3>
+<div style="overflow:auto"><table id="multiTable"><thead><tr>
+<th>조합</th><th>근거수</th><th>N</th><th>승률</th><th>EV</th><th>PF</th><th>승리/일</th>
+</tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="card">
+<h3>④ 실행엔진 / 구조 감사</h3>
+<div style="overflow:auto"><table id="auditTable"><thead><tr>
+<th>감사항목</th><th>건수</th><th>설명</th>
+</tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="card">
+<h3>⑤ 최적 Exit의 종목별 강건성</h3>
+<div style="overflow:auto"><table id="symbolTable"><thead><tr>
+<th>종목</th><th>N</th><th>승률</th><th>EV</th><th>PF</th><th>승리/일</th>
+</tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="card">
+<h3>로그</h3>
+<pre id="log"></pre>
+</div>
+</div>
+
+<script>
+const VERSION="EASYALNAM_LECTURE_BACKTEST_V1";
+let stopped=false,lastExport=null;
+const $=id=>document.getElementById(id), n=x=>Number(x)||0;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function log(s){const e=$("log");e.textContent+=s+"\n";e.scrollTop=e.scrollHeight}
+function setStatus(s,p){$("status").textContent=s;if(Number.isFinite(p))$("bar").style.width=Math.max(0,Math.min(100,p))+"%"}
+
+const SETUPS=[
+{id:"CHANNEL_4TH",name:"채널 4포인트 역추세"},
+{id:"CHANNEL_FAKEOUT",name:"채널 Fake out / 재진입"},
+{id:"OB_REVERSAL",name:"Order Block 구조 반전"},
+{id:"FVG_REBALANCE",name:"FVG 회귀 / Rebalance"},
+{id:"SR_FLIP",name:"S/R Flip + Retest"},
+{id:"DIAGONAL_BREAK",name:"추세선 Break + Retest"},
+{id:"HTF_CONFLUENCE",name:"HTF Confluence 반전"},
+{id:"CONTINUATION",name:"추세 지속 눌림 / 구조 재진입"}
+];
+const NAMES=Object.fromEntries(SETUPS.map(x=>[x.id,x.name]));
+
+function bybitUrl(path,params){const q=new URLSearchParams(params||{});return `https://api.bybit.com${path}?${q}`}
+async function fetchJsonWithFallback(url){
+ const tries=[url,`https://corsproxy.io/?url=${encodeURIComponent(url)}`];
+ let last="";
+ for(const u of tries){
+  try{const r=await fetch(u,{cache:"no-store"});if(!r.ok){last=`HTTP ${r.status}`;continue}return await r.json()}
+  catch(e){last=e?.message||String(e)}
+ }
+ throw new Error(`데이터 요청 실패: ${last}`);
+}
+async function apiTickers(){return fetchJsonWithFallback(bybitUrl("/v5/market/tickers",{category:"linear"}))}
+async function apiKline(params){return fetchJsonWithFallback(bybitUrl("/v5/market/kline",{category:"linear",...params}))}
+async function getUniverse(count){
+ const j=await apiTickers();if(j.retCode!==0)throw new Error(j.retMsg||"ticker error");
+ return (j.result?.list||[]).filter(x=>x.symbol?.endsWith("USDT")&&!x.symbol.includes("-"))
+  .map(x=>({symbol:x.symbol,turnover:n(x.turnover24h)})).filter(x=>x.turnover>0)
+  .sort((a,b)=>b.turnover-a.turnover).slice(0,count).map(x=>x.symbol)
+}
+async function fetchKlines(symbol,days){
+ const end=Date.now(),start=end-days*86400000;let cursor=end,all=[],loops=0;
+ while(cursor>start&&!stopped){
+  const j=await apiKline({symbol,interval:"5",end:String(cursor),limit:"1000"});
+  if(j.retCode!==0)throw new Error(`${symbol}: ${j.retMsg}`);
+  const rows=j.result?.list||[];if(!rows.length)break;
+  for(const r of rows){const x={t:n(r[0]),o:n(r[1]),h:n(r[2]),l:n(r[3]),c:n(r[4]),v:n(r[5]),turnover:n(r[6])};if(x.t>=start&&x.t<=end)all.push(x)}
+  let oldest=Infinity;for(const r of rows){const tt=n(r[0]);if(Number.isFinite(tt)&&tt<oldest)oldest=tt}
+  if(!Number.isFinite(oldest)||oldest>=cursor)break;
+  cursor=oldest-1;if(++loops>170)break;await sleep(55)
+ }
+ const m=new Map();for(const x of all)m.set(x.t,x);return [...m.values()].sort((a,b)=>a.t-b.t)
+}
+
+function mean(a){return a.length?a.reduce((s,x)=>s+x,0)/a.length:0}
+function median(a){if(!a.length)return 0;const x=[...a].sort((p,q)=>p-q),m=Math.floor(x.length/2);return x.length%2?x[m]:(x[m-1]+x[m])/2}
+function quantile(a,q){if(!a.length)return 0;const x=[...a].sort((p,q)=>p-q),p=(x.length-1)*q,b=Math.floor(p),f=p-b;return x[b+1]!==undefined?x[b]+f*(x[b+1]-x[b]):x[b]}
+function ema(v,len){if(!v.length)return[];const k=2/(len+1),o=[v[0]];for(let i=1;i<v.length;i++)o.push(v[i]*k+o[i-1]*(1-k));return o}
+function atr(c,len=14){if(c.length<len+1)return 0;const a=[];for(let i=c.length-len;i<c.length;i++){const p=c[i-1],x=c[i];a.push(Math.max(x.h-x.l,Math.abs(x.h-p.c),Math.abs(x.l-p.c)))}return mean(a)}
+function aggregateClosed(c,tfMin,nowClose){
+ const ms=tfMin*60000,map=new Map();
+ for(const x of c){
+  const b=Math.floor(x.t/ms)*ms;if(b+ms>nowClose)continue;
+  let q=map.get(b);
+  if(!q)q={t:b,o:x.o,h:x.h,l:x.l,c:x.c,v:x.v,turnover:x.turnover};
+  else{q.h=Math.max(q.h,x.h);q.l=Math.min(q.l,x.l);q.c=x.c;q.v+=x.v;q.turnover+=x.turnover}
+  map.set(b,q)
+ }
+ return [...map.values()].sort((a,b)=>a.t-b.t)
+}
+function trendState(c){
+ if(c.length<40)return 0;const cl=c.slice(-40).map(x=>x.c),e20=ema(cl,20),e35=ema(cl,35),a=e20.at(-1),b=e35.at(-1);
+ return a>b*1.001?1:a<b*.999?-1:0
+}
+function pivots(c,look=120){
+ const a=c.slice(-look),out=[];
+ for(let i=2;i<a.length-2;i++){
+  if(a[i].h>a[i-1].h&&a[i].h>a[i-2].h&&a[i].h>=a[i+1].h&&a[i].h>=a[i+2].h)out.push({i,type:"H",p:a[i].h,t:a[i].t});
+  if(a[i].l<a[i-1].l&&a[i].l<a[i-2].l&&a[i].l<=a[i+1].l&&a[i].l<=a[i+2].l)out.push({i,type:"L",p:a[i].l,t:a[i].t});
+ }return out
+}
+function lineByTwo(a,b){if(!a||!b||b.i===a.i)return null;const slope=(b.p-a.p)/(b.i-a.i);return{slope,at:i=>a.p+slope*(i-a.i)}}
+function channelMap(c){
+ if(c.length<90)return null;const a=c.slice(-96),ps=pivots(a,96),hs=ps.filter(x=>x.type==="H").slice(-3),ls=ps.filter(x=>x.type==="L").slice(-3);
+ if(hs.length<2||ls.length<2)return null;const hl=lineByTwo(hs.at(-2),hs.at(-1)),ll=lineByTwo(ls.at(-2),ls.at(-1));if(!hl||!ll)return null;
+ const i=a.length-1,top=hl.at(i),bot=ll.at(i);if(!(top>bot))return null;const width=top-bot;if(width<=0)return null;
+ return{top,bot,width,pos:(a.at(-1).c-bot)/width,slope:(hl.slope+ll.slope)/2,touchesTop:hs.length,touchesBot:ls.length}
+}
+function allFVGs(c,dir,look=50){
+ const out=[],start=Math.max(2,c.length-look);
+ for(let i=start;i<c.length;i++){const a=c[i-2],d=c[i];
+  if(dir===1&&a.h<d.l)out.push({low:a.h,high:d.l,origin:d.t,dir});
+  if(dir===-1&&a.l>d.h)out.push({low:d.h,high:a.l,origin:d.t,dir});
+ }return out
+}
+function nearestFVG(c,dir,px,tol,look=50){
+ const z=allFVGs(c,dir,look).filter(z=>px>=z.low-tol&&px<=z.high+tol);
+ return z.length?z.at(-1):null
+}
+function obZone(c,dir){
+ const a=c.slice(-32);
+ for(let i=a.length-3;i>=2;i--){const x=a[i],q=a[i+1],opp=dir===1?x.c<x.o:x.c>x.o,disp=dir===1?q.c>q.o&&q.c>x.h:q.c<q.o&&q.c<x.l;
+  if(opp&&disp)return{low:x.l,high:x.h,origin:x.t,dir}
+ }return null
+}
+function inZone(px,z,t=0){return !!z&&px>=z.low-t&&px<=z.high+t}
+function srLevels(c){return pivots(c,150).slice(-18).map(x=>x.p)}
+function nearestLevel(px,levels){let b=null,d=Infinity;for(const l of levels){const q=Math.abs(l-px);if(q<d){d=q;b=l}}return b}
+function recentSwing(c,dir,look=18){
+ const a=c.slice(-look),ps=pivots(a,look).filter(x=>x.type===(dir===1?"L":"H"));
+ return ps.length?ps.at(-1).p:(dir===1?Math.min(...a.map(x=>x.l)):Math.max(...a.map(x=>x.h)))
+}
+function zoneDist(entry,z){if(!z)return Infinity;if(entry<z.low)return z.low-entry;if(entry>z.high)return entry-z.high;return 0}
+function overlap(z1,z2,tol=0){if(!z1||!z2)return false;return Math.max(z1.low,z2.low)<=Math.min(z1.high,z2.high)+tol}
+function reaction(x,dir){return dir===1?x.c>x.o:x.c<x.o}
+
+function market(c5,i){
+ const h=c5.slice(Math.max(0,i-2800),i+1);if(h.length<2000)return null;
+ const nowClose=h.at(-1).t+5*60000,c15=aggregateClosed(h,15,nowClose),c60=aggregateClosed(h,60,nowClose),c240=aggregateClosed(h,240,nowClose);
+ if(c15.length<80||c60.length<55||c240.length<25)return null;
+ const px=h.at(-1).c,a=atr(h,14)||0;
+ return{
+  h,c15,c60,c240,px,a,x:h.at(-1),p:h.at(-2),ch15:channelMap(c15),ch60:channelMap(c60),
+  t1:trendState(c60),t4:trendState(c240),
+  ob1u:obZone(c60,1),ob1d:obZone(c60,-1),ob15u:obZone(c15,1),ob15d:obZone(c15,-1),
+  fvg1u:nearestFVG(c60,1,px,a*.25),fvg1d:nearestFVG(c60,-1,px,a*.25),
+  fvg15u:nearestFVG(c15,1,px,a*.25),fvg15d:nearestFVG(c15,-1,px,a*.25),
+  nearSR:nearestLevel(px,srLevels(c60))
+ }
+}
+function nextStructureTarget(m,dir,entry){
+ const candidates=[];
+ const add=(p,label)=>{if(Number.isFinite(p)&&(dir===1?p>entry:p<entry))candidates.push({p,label,d:Math.abs(p-entry)})};
+ add(m.nearSR,"SR");add(m.ch15?.top,"CHANNEL_TOP");add(m.ch15?.bot,"CHANNEL_BOTTOM");
+ for(const z of [m.ob1u,m.ob1d,m.ob15u,m.ob15d,m.fvg1u,m.fvg1d,m.fvg15u,m.fvg15d]){if(z){add(z.low,"ZONE");add(z.high,"ZONE")}}
+ candidates.sort((a,b)=>a.d-b.d);return candidates[0]||null
+}
+function structuralStop(m,dir,zone,extraSwing=true){
+ const pad=m.a*.12;
+ let s=dir===1?(zone?zone.low-pad:m.px-m.a):(zone?zone.high+pad:m.px+m.a);
+ if(extraSwing){
+  const sw=recentSwing(m.h,dir,18);
+  if(Number.isFinite(sw))s=dir===1?Math.min(s,sw-pad):Math.max(s,sw+pad)
+ }
+ return s
+}
+function makeSignal(id,dir,m,zone,sl,target,meta={}){
+ const z=zone||{low:m.px-m.a*.15,high:m.px+m.a*.15};
+ return{id,dir,entry:m.px,zone:z,sl,target,meta}
+}
+
+function baseSignals(m){
+ const out=[],x=m.x,p=m.p,a=m.a,px=m.px,ch=m.ch15;
+
+ // 1) 채널 4번째 터치 반전
+ if(ch){
+  if(ch.touchesBot>=2&&x.l<=ch.bot+a*.22&&x.c>ch.bot&&reaction(x,1)){
+    const zone={low:ch.bot-a*.20,high:ch.bot+a*.20},t={p:ch.top,label:"CHANNEL_OPPOSITE"};
+    out.push(makeSignal("CHANNEL_4TH",1,m,zone,structuralStop(m,1,zone,true),t.p,{targetSource:t.label}));
+  }
+  if(ch.touchesTop>=2&&x.h>=ch.top-a*.22&&x.c<ch.top&&reaction(x,-1)){
+    const zone={low:ch.top-a*.20,high:ch.top+a*.20},t={p:ch.bot,label:"CHANNEL_OPPOSITE"};
+    out.push(makeSignal("CHANNEL_4TH",-1,m,zone,structuralStop(m,-1,zone,true),t.p,{targetSource:t.label}));
+  }
+ }
+
+ // 2) 채널 가짜돌파
+ if(ch){
+  if((p.l<ch.bot||x.l<ch.bot)&&x.c>ch.bot&&reaction(x,1)){
+    const zone={low:Math.min(p.l,x.l),high:ch.bot+a*.12};
+    out.push(makeSignal("CHANNEL_FAKEOUT",1,m,zone,Math.min(p.l,x.l)-a*.12,ch.top,{targetSource:"CHANNEL_OPPOSITE"}));
+  }
+  if((p.h>ch.top||x.h>ch.top)&&x.c<ch.top&&reaction(x,-1)){
+    const zone={low:ch.top-a*.12,high:Math.max(p.h,x.h)};
+    out.push(makeSignal("CHANNEL_FAKEOUT",-1,m,zone,Math.max(p.h,x.h)+a*.12,ch.bot,{targetSource:"CHANNEL_OPPOSITE"}));
+  }
+ }
+
+ // 3) 오더블록 반전: 1H 우선, 없으면 15M
+ for(const dir of [1,-1]){
+  const z=(dir===1?(inZone(px,m.ob1u,a*.22)?m.ob1u:(inZone(px,m.ob15u,a*.22)?m.ob15u:null))
+                   :(inZone(px,m.ob1d,a*.22)?m.ob1d:(inZone(px,m.ob15d,a*.22)?m.ob15d:null)));
+  if(z&&reaction(x,dir)){const t=nextStructureTarget(m,dir,px);if(t)out.push(makeSignal("OB_REVERSAL",dir,m,z,structuralStop(m,dir,z,true),t.p,{targetSource:t.label}))}
+ }
+
+ // 4) FVG 되돌림: 1H 우선, 없으면 15M
+ for(const dir of [1,-1]){
+  const z=dir===1?(m.fvg1u||m.fvg15u):(m.fvg1d||m.fvg15d);
+  if(z&&inZone(px,z,a*.18)&&reaction(x,dir)){const t=nextStructureTarget(m,dir,px);if(t)out.push(makeSignal("FVG_REBALANCE",dir,m,z,structuralStop(m,dir,z,true),t.p,{targetSource:t.label}))}
+ }
+
+ // 5) SR flip
+ if(Number.isFinite(m.nearSR)){
+  const L=m.nearSR,tol=a*.22,r=m.h.slice(-9,-1),up=r.some(q=>q.c>L+tol),dn=r.some(q=>q.c<L-tol);
+  if(up&&x.l<=L+tol&&x.c>L&&reaction(x,1)){const z={low:L-tol,high:L+tol},t=nextStructureTarget(m,1,px);if(t)out.push(makeSignal("SR_FLIP",1,m,z,structuralStop(m,1,z,true),t.p,{targetSource:t.label}))}
+  if(dn&&x.h>=L-tol&&x.c<L&&reaction(x,-1)){const z={low:L-tol,high:L+tol},t=nextStructureTarget(m,-1,px);if(t)out.push(makeSignal("SR_FLIP",-1,m,z,structuralStop(m,-1,z,true),t.p,{targetSource:t.label}))}
+ }
+
+ // 6) 추세선/다이어고날 돌파 후 되돌림
+ if(ch&&Math.abs(ch.slope)>ch.width*.0015){
+  if(p.c>ch.top&&x.l<=ch.top+a*.22&&x.c>ch.top&&reaction(x,1)){const z={low:ch.top-a*.20,high:ch.top+a*.20},t=nextStructureTarget(m,1,px);if(t)out.push(makeSignal("DIAGONAL_BREAK",1,m,z,structuralStop(m,1,z,true),t.p,{targetSource:t.label}))}
+  if(p.c<ch.bot&&x.h>=ch.bot-a*.22&&x.c<ch.bot&&reaction(x,-1)){const z={low:ch.bot-a*.20,high:ch.bot+a*.20},t=nextStructureTarget(m,-1,px);if(t)out.push(makeSignal("DIAGONAL_BREAK",-1,m,z,structuralStop(m,-1,z,true),t.p,{targetSource:t.label}))}
+ }
+
+ // 7) 큰 시간봉 핵심구간: 1H OB/FVG/SR/채널 가장자리 중 2개 이상 가격 중첩
+ for(const dir of [1,-1]){
+  const zones=[];
+  const ob=dir===1?m.ob1u:m.ob1d,fvg=dir===1?m.fvg1u:m.fvg1d;
+  if(ob&&inZone(px,ob,a*.28))zones.push(ob);
+  if(fvg&&inZone(px,fvg,a*.28))zones.push(fvg);
+  if(Number.isFinite(m.nearSR)&&Math.abs(px-m.nearSR)<=a*.28)zones.push({low:m.nearSR-a*.18,high:m.nearSR+a*.18});
+  if(m.ch60){
+   const edge=dir===1?m.ch60.bot:m.ch60.top;
+   if(Math.abs(px-edge)<=a*.30)zones.push({low:edge-a*.18,high:edge+a*.18});
+  }
+  if(zones.length>=2&&reaction(x,dir)){
+   const low=Math.max(...zones.map(z=>z.low)),high=Math.min(...zones.map(z=>z.high));
+   const z=low<=high+a*.20?{low:Math.min(...zones.map(z=>z.low)),high:Math.max(...zones.map(z=>z.high))}:null;
+   const t=nextStructureTarget(m,dir,px);
+   if(z&&t)out.push(makeSignal("HTF_CONFLUENCE",dir,m,z,structuralStop(m,dir,z,true),t.p,{targetSource:t.label,componentCount:zones.length}));
+  }
+ }
+
+ // 8) 추세 지속 눌림목: 1H 추세 + 15M OB/FVG 되돌림
+ for(const dir of [1,-1]){
+  if(m.t1!==dir)continue;
+  const z=dir===1?(inZone(px,m.ob15u,a*.20)?m.ob15u:(m.fvg15u&&inZone(px,m.fvg15u,a*.20)?m.fvg15u:null))
+                 :(inZone(px,m.ob15d,a*.20)?m.ob15d:(m.fvg15d&&inZone(px,m.fvg15d,a*.20)?m.fvg15d:null));
+  if(z&&reaction(x,dir)){const t=nextStructureTarget(m,dir,px);if(t)out.push(makeSignal("CONTINUATION",dir,m,z,structuralStop(m,dir,z,true),t.p,{targetSource:t.label}))}
+ }
+ return out
+}
+
+function validateSignal(s,m){
+ const vals=[s.entry,s.sl,s.target,s.zone?.low,s.zone?.high];
+ if(vals.some(v=>!Number.isFinite(v)))return{ok:false,reason:"NON_FINITE"};
+ if(s.dir===1&&!(s.sl<s.entry&&s.target>s.entry))return{ok:false,reason:"LONG_GEOMETRY"};
+ if(s.dir===-1&&!(s.target<s.entry&&s.sl>s.entry))return{ok:false,reason:"SHORT_GEOMETRY"};
+ const risk=Math.abs(s.entry-s.sl),reward=Math.abs(s.target-s.entry);
+ if(risk<=Math.max(Math.abs(s.entry)*1e-7,m.a*.01))return{ok:false,reason:"NUMERIC_TINY_STOP"};
+ const rr=reward/risk,stopATR=m.a?risk/m.a:Infinity;
+ const extreme=rr>10||stopATR<.10||stopATR>8;
+ return{ok:true,rr,risk,reward,stopATR,extreme}
+}
+function simulate(c,i,s,rr,maxBars=96){
+ const risk=Math.abs(s.entry-s.sl);
+ for(let j=i+1;j<Math.min(c.length,i+1+maxBars);j++){
+  const q=c[j],sl=s.dir===1?q.l<=s.sl:q.h>=s.sl,tp=s.dir===1?q.h>=s.target:q.l<=s.target;
+  if(sl&&tp)return{r:-1,bars:j-i,reason:"BOTH_STOP_FIRST"};
+  if(sl)return{r:-1,bars:j-i,reason:"SL"};
+  if(tp)return{r:rr,bars:j-i,reason:"TARGET"};
+ }
+ const last=c[Math.min(c.length-1,i+maxBars)].c,r=s.dir===1?(last-s.entry)/risk:(s.entry-last)/risk;
+ return{r:Math.max(-1,Math.min(rr,r)),bars:maxBars,reason:"TIME"}
+}
+function metrics(rows){
+ const wins=rows.filter(x=>x.r>0),loss=rows.filter(x=>x.r<=0),gw=wins.reduce((s,x)=>s+x.r,0),gl=Math.abs(loss.reduce((s,x)=>s+x.r,0)),rrs=rows.map(x=>x.rr);
+ return{n:rows.length,winRate:rows.length?wins.length/rows.length*100:0,ev:mean(rows.map(x=>x.r)),pf:gl?gw/gl:(gw?999:0),wins:wins.length,medianRR:median(rrs),p95RR:quantile(rrs,.95),avgHold:mean(rows.map(x=>x.holdMinutes))}
+}
+function compatible(a,b,m){
+ if(a.dir!==b.dir||a.id===b.id)return false;
+ if(overlap(a.zone,b.zone,m.a*.15))return true;
+ return Math.max(zoneDist(a.entry,b.zone),zoneDist(b.entry,a.zone))<=m.a*.5
+}
+function comboTarget(signals,dir){
+ const ps=signals.map(s=>s.target).filter(p=>dir===1?p>signals[0].entry:p<signals[0].entry);
+ if(!ps.length)return null;return dir===1?Math.min(...ps):Math.max(...ps)
+}
+function comboStop(signals,dir){
+ const ps=signals.map(s=>s.sl);return dir===1?Math.min(...ps):Math.max(...ps)
+}
+function combinations(arr,k){
+ const out=[];function rec(start,cur){if(cur.length===k){out.push([...cur]);return}for(let i=start;i<arr.length;i++){cur.push(arr[i]);rec(i+1,cur);cur.pop()}}rec(0,[]);return out
+}
+function dedupeKey(symbol,t,dir,ids){return `${symbol}|${t}|${dir}|${[...ids].sort().join("+")}`}
+function group(rows,keyFn,days){
+ const mp=new Map();for(const r of rows){const k=keyFn(r);if(!mp.has(k))mp.set(k,[]);mp.get(k).push(r)}
+ return [...mp.entries()].map(([key,v])=>({key,...metrics(v),winsPerDay:v.filter(x=>x.r>0).length/Math.max(1,days)}))
+}
+function fill(id,rows,cols){
+ const tb=$(id).querySelector("tbody");tb.innerHTML="";
+ for(const r of rows){const tr=document.createElement("tr");tr.innerHTML=cols.map(fn=>`<td>${fn(r)}</td>`).join("");tb.appendChild(tr)}
+}
+function render(baseTrades,comboTrades,invalid,audits,days){
+ const base=SETUPS.map(s=>{const v=baseTrades.filter(x=>x.setup===s.id);return{id:s.id,key:s.name,...metrics(v),winsPerDay:v.filter(x=>x.r>0).length/Math.max(1,days)}}).sort((a,b)=>b.ev-a.ev);
+ fill("baseTable",base,[r=>r.key,r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2),r=>r.winsPerDay.toFixed(2),r=>r.medianRR.toFixed(2),r=>r.p95RR.toFixed(2),r=>r.avgHold.toFixed(1)+"m"]);
+
+ const baseMap=Object.fromEntries(base.map(x=>[x.id,x]));
+ const pairs=group(comboTrades.filter(x=>x.comboSize===2),r=>r.comboKey,days).filter(x=>x.n>=10).map(r=>{
+   const ids=r.key.split("+"),baseline=mean(ids.map(id=>baseMap[id]?.ev||0));return{...r,baseline,improve:r.ev-baseline}
+ }).sort((a,b)=>b.ev-a.ev).slice(0,50);
+ fill("pairTable",pairs,[r=>r.key.split("+").map(x=>NAMES[x]||x).join(" + "),r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2),r=>r.winsPerDay.toFixed(2),r=>(r.improve>=0?"+":"")+r.improve.toFixed(3)]);
+
+ const multi=group(comboTrades.filter(x=>x.comboSize>=3),r=>r.comboKey,days).filter(x=>x.n>=8).sort((a,b)=>b.ev-a.ev).slice(0,50);
+ fill("multiTable",multi,[r=>r.key.split("+").map(x=>NAMES[x]||x).join(" + "),r=>r.key.split("+").length,r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2),r=>r.winsPerDay.toFixed(2)]);
+
+ const invMap=new Map();for(const r of invalid)invMap.set(r.reason,(invMap.get(r.reason)||0)+1);
+ const auditRows=[
+  {key:"무효 거래 합계",n:invalid.length,desc:"성과 계산에서 완전 제외"},
+  {key:"극단 RR/SL 감사",n:audits.extreme,desc:"성과에는 포함하되 별도 표시 (RR>10 또는 stop<0.1ATR 또는 >8ATR)"},
+  ...[...invMap.entries()].map(([key,n])=>({key,n,desc:"공통 실행엔진 검증 실패"}))
+ ];
+ fill("auditTable",auditRows,[r=>r.key,r=>r.n,r=>r.desc]);
+
+ const sy=group(baseTrades,r=>r.symbol,days).sort((a,b)=>b.ev-a.ev);
+ fill("symbolTable",sy,[r=>r.key,r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2),r=>r.winsPerDay.toFixed(2)]);
+ return{base,pairs,multi,audit:auditRows,bySymbol:sy}
+}
+
+
+function signalScore(s,m){
+ let score=0;
+ // 이것은 진입 필터가 아니라 같은 시각 여러 근거 중 "주 근거"를 결정하기 위한 우선순위
+ if(s.id==="CHANNEL_4TH")score+=8;
+ if(s.id==="CHANNEL_FAKEOUT")score+=8;
+ if(s.id==="DIAGONAL_BREAK")score+=6;
+ if(s.id==="SR_FLIP")score+=5;
+ if(s.id==="HTF_CONFLUENCE")score+=5;
+ if(s.id==="CONTINUATION")score+=4;
+ if(s.id==="OB_REVERSAL")score+=3;
+ if(s.id==="FVG_REBALANCE")score+=3;
+ if(m.t1===s.dir)score+=1;
+ if(m.t4===s.dir)score+=1;
+ return score;
+}
+function historicalSelectorScore(m){
+ // 미래의 현재 turnover24h를 과거 전체에 고정하지 않는다.
+ // 각 평가시점 직전 데이터만 사용: 최근 24h 5m 거래대금 + ATR% + 최근 6h range%.
+ const h=m.h, last=h.at(-1).c;
+ const bars24=h.slice(-288), bars6=h.slice(-72);
+ const turn24=bars24.reduce((s,x)=>s+x.turnover,0);
+ const atrPct=last?m.a/last:0;
+ const hi=Math.max(...bars6.map(x=>x.h)),lo=Math.min(...bars6.map(x=>x.l));
+ const rangePct=last?(hi-lo)/last:0;
+ return {turn24,atrPct,rangePct,raw:Math.log10(Math.max(1,turn24))*(1+atrPct*100)*(1+rangePct*20)};
+}
+function chooseUnifiedSignal(valid,m){
+ if(!valid.length)return null;
+ // 방향별로 묶고 근거 수→우선점수→구조 RR 순으로 대표 후보를 고른다.
+ const groups=[1,-1].map(dir=>valid.filter(x=>x.dir===dir)).filter(x=>x.length);
+ const ranked=groups.map(g=>{
+   const compatibleSet=[];
+   const sorted=[...g].sort((a,b)=>signalScore(b,m)-signalScore(a,m));
+   const anchor=sorted[0];
+   for(const s of sorted) if(s===anchor||compatible(anchor,s,m)) compatibleSet.push(s);
+   const needsConfluence=["OB_REVERSAL","FVG_REBALANCE","HTF_CONFLUENCE","CONTINUATION"].includes(anchor.id);
+   if(needsConfluence && compatibleSet.length<2) return null;
+   const target=comboTarget(compatibleSet,anchor.dir),sl=comboStop(compatibleSet,anchor.dir);
+   if(!Number.isFinite(target)||!Number.isFinite(sl))return null;
+   const s={id:anchor.id,dir:anchor.dir,entry:m.px,sl,target,
+            zone:{low:Math.min(...compatibleSet.map(x=>x.zone.low)),high:Math.max(...compatibleSet.map(x=>x.zone.high))}};
+   const v=validateSignal(s,m); if(!v.ok)return null;
+   return {anchor,signals:compatibleSet,s,v,rank:compatibleSet.length*100+signalScore(anchor,m)+Math.min(v.rr,10)/100};
+ }).filter(Boolean).sort((a,b)=>b.rank-a.rank);
+ return ranked[0]||null;
+}
+function grossMovePct(entry,target){return entry?Math.abs(target-entry)/entry:0}
+function costPct(entryFee,exitFee,slip){return entryFee+exitFee+2*slip}
+function simulateNet(c,i,s,rr,entryFee,exitFee,slip,maxBars=96){
+ const gross=simulate(c,i,s,rr,maxBars); if(!gross)return null;
+ const riskPct=Math.abs(s.entry-s.sl)/s.entry;
+ const feesPct=costPct(entryFee,exitFee,slip);
+ const costR=riskPct?feesPct/riskPct:Infinity;
+ return {...gross,grossR:gross.r,costR,netR:gross.r-costR};
+}
+
+const EXIT_NAMES={
+ A:"A 기존 구조목표",B:"B 다음 의미구조",C:"C 고정 1.0R",D:"D 고정 1.5R",
+ E:"E 고정 2.0R",F:"F 1R 50%익절 + 잔여 추세",G:"G 1R 이후 ATR 추적"
+};
+function exitTarget(entry,sl,dir,R){const risk=Math.abs(entry-sl);return dir===1?entry+risk*R:entry-risk*R}
+function simulateFixed(c,i,s,R,entryFee,exitFee,slip,maxBars=144){
+ const ss={...s,target:exitTarget(s.entry,s.sl,s.dir,R)};
+ return simulateNet(c,i,ss,R,entryFee,exitFee,slip,maxBars);
+}
+function simulateStructureB(c,i,s,m,entryFee,exitFee,slip,maxBars=144){
+ // 기존 target보다 진입에서 더 먼 "다음 의미 구조"를 탐색. 없으면 기존 A와 동일.
+ const risk=Math.abs(s.entry-s.sl), dir=s.dir, levels=[];
+ for(const p of srLevels(m.c60||m.h)) if(dir===1?p>s.entry:p<s.entry) levels.push(p);
+ if(m.ch60){for(const p of [m.ch60.top,m.ch60.bot])if(dir===1?p>s.entry:p<s.entry)levels.push(p)}
+ for(const z of [m.ob1u,m.ob1d,m.fvg1u,m.fvg1d]){
+   if(z) for(const p of [z.low,z.high]) if(dir===1?p>s.entry:p<s.entry)levels.push(p);
+ }
+ levels.sort((a,b)=>Math.abs(a-s.entry)-Math.abs(b-s.entry));
+ const farther=levels.find(p=>Math.abs(p-s.entry)>Math.abs(s.target-s.entry)*1.15);
+ const target=farther??s.target, rr=Math.abs(target-s.entry)/risk;
+ return simulateNet(c,i,{...s,target},rr,entryFee,exitFee,slip,maxBars);
+}
+function simulatePartial(c,i,s,entryFee,exitFee,slip,maxBars=180){
+ const risk=Math.abs(s.entry-s.sl),t1=exitTarget(s.entry,s.sl,s.dir,1),t2=exitTarget(s.entry,s.sl,s.dir,2);
+ let half=false;
+ for(let j=i+1;j<Math.min(c.length,i+1+maxBars);j++){
+   const q=c[j],sl=s.dir===1?q.l<=s.sl:q.h>=s.sl,hit1=s.dir===1?q.h>=t1:q.l<=t1,hit2=s.dir===1?q.h>=t2:q.l<=t2;
+   if(!half){
+     if(sl)return {netR:-1-costPct(entryFee,exitFee,slip)/(risk/s.entry),grossR:-1,bars:j-i,reason:"SL"};
+     if(hit1)half=true;
+   }else{
+     if(hit2){const gross=1.5,costR=costPct(entryFee,exitFee,slip)/(risk/s.entry);return{netR:gross-costR,grossR:gross,bars:j-i,reason:"PARTIAL_1R_THEN_2R"}}
+     if(sl){const gross=0,costR=costPct(entryFee,exitFee,slip)/(risk/s.entry);return{netR:-costR,grossR:gross,bars:j-i,reason:"PARTIAL_1R_THEN_SL"}}
+   }
+ }
+ const gross=half?0.5:0,costR=costPct(entryFee,exitFee,slip)/(risk/s.entry);
+ return{netR:gross-costR,grossR:gross,bars:maxBars,reason:"TIME"};
+}
+function simulateTrail(c,i,s,m,entryFee,exitFee,slip,maxBars=180){
+ const risk=Math.abs(s.entry-s.sl),one=exitTarget(s.entry,s.sl,s.dir,1);let armed=false,trail=s.sl;
+ for(let j=i+1;j<Math.min(c.length,i+1+maxBars);j++){
+   const q=c[j];
+   if(!armed){
+     const sl=s.dir===1?q.l<=s.sl:q.h>=s.sl,hit=s.dir===1?q.h>=one:q.l<=one;
+     if(sl)return {netR:-1-costPct(entryFee,exitFee,slip)/(risk/s.entry),grossR:-1,bars:j-i,reason:"SL"};
+     if(hit){armed=true;trail=s.entry}
+   }else{
+     const recent=c.slice(Math.max(i,j-14),j+1),a=atr(recent,14)||m.a;
+     trail=s.dir===1?Math.max(trail,q.c-a*1.5):Math.min(trail,q.c+a*1.5);
+     const hit=s.dir===1?q.l<=trail:q.h>=trail;
+     if(hit){
+       const gross=s.dir===1?(trail-s.entry)/risk:(s.entry-trail)/risk;
+       const costR=costPct(entryFee,exitFee,slip)/(risk/s.entry);
+       return{netR:gross-costR,grossR:gross,bars:j-i,reason:"TRAIL"};
+     }
+   }
+ }
+ const last=c[Math.min(c.length-1,i+maxBars)].c,gross=s.dir===1?(last-s.entry)/risk:(s.entry-last)/risk;
+ const costR=costPct(entryFee,exitFee,slip)/(risk/s.entry);
+ return{netR:gross-costR,grossR:gross,bars:maxBars,reason:"TIME"};
+}
+function allExitResults(c,i,s,m,entryFee,exitFee,slip){
+ const risk=Math.abs(s.entry-s.sl),a=simulateNet(c,i,s,Math.abs(s.target-s.entry)/risk,entryFee,exitFee,slip,144);
+ const b=simulateStructureB(c,i,s,m,entryFee,exitFee,slip,144);
+ const c1=simulateFixed(c,i,s,1,entryFee,exitFee,slip,144),d=simulateFixed(c,i,s,1.5,entryFee,exitFee,slip,144),e=simulateFixed(c,i,s,2,entryFee,exitFee,slip,144);
+ const f=simulatePartial(c,i,s,entryFee,exitFee,slip,180),g=simulateTrail(c,i,s,m,entryFee,exitFee,slip,180);
+ return {A:a,B:b,C:c1,D:d,E:e,F:f,G:g};
+}
+async function run(){
+ stopped=false;$("log").textContent="";setStatus("시작",1);
+ const universe=n($("universe").value),days=n($("days").value),stride=n($("stride").value);
+ const entryFee=n($("entryFee").value),exitFee=n($("exitFee").value),slip=n($("slippage").value);
+ try{
+  const pool=await getUniverse(Math.max(20,universe*2));$("mSymbols").textContent=pool.length;
+  const data={};let totalCandles=0;
+  for(let si=0;si<pool.length;si++){if(stopped)break;const sym=pool[si];setStatus(`${sym} 데이터`,2+38*si/pool.length);
+    const c=await fetchKlines(sym,days);data[sym]=c;totalCandles+=c.length;$("mCandles").textContent=totalCandles.toLocaleString();log(`${sym}: ${c.length}`)}
+  if(stopped)return;
+  const times=[...new Set(Object.values(data).flatMap(c=>c.slice(2000,-180).filter((_,j)=>j%stride===0).map(x=>x.t)))].sort((a,b)=>a-b);
+  const maps={};for(const [s,c] of Object.entries(data))maps[s]=new Map(c.map((x,i)=>[x.t,i]));
+  const busyUntil=Object.fromEntries(pool.map(s=>[s,0]));
+  let entries=[],exitRows=[],invalid=[],audits={costRejected:0,busySkipped:0,extreme:0};
+  let done=0;
+  for(const t of times){
+   const cand=[];
+   for(const sym of pool){const i=maps[sym].get(t);if(i===undefined||i<2000||i>=data[sym].length-180)continue;const m=market(data[sym],i);if(m)cand.push({sym,i,m,sel:historicalSelectorScore(m)})}
+   cand.sort((a,b)=>b.sel.raw-a.sel.raw);
+   for(const item of cand.slice(0,universe)){
+    const {sym,i,m}=item;if(t<busyUntil[sym]){audits.busySkipped++;continue}
+    const valid=[];
+    for(const s0 of baseSignals(m)){const v=validateSignal(s0,m);if(v.ok)valid.push({...s0,...v});else invalid.push({sym,t,reason:v.reason})}
+    const pick=chooseUnifiedSignal(valid,m);if(!pick)continue;
+    const {anchor,signals,s,v}=pick,round=costPct(entryFee,exitFee,slip);
+    if(grossMovePct(s.entry,s.target)<=round){audits.costRejected++;continue}
+    if(v.rr<1.25){invalid.push({sym,t,reason:"INSUFFICIENT_ROOM_LT_1_25R"});continue}
+    if(v.extreme)audits.extreme++;
+    const exits=allExitResults(data[sym],i,s,m,entryFee,exitFee,slip);
+    // Entry stream is frozen to baseline A: future entry availability follows A exit only.
+    const a=exits.A,exitIndex=Math.min(data[sym].length-1,i+a.bars);busyUntil[sym]=data[sym][exitIndex].t+300000;
+    const ids=[...new Set(signals.map(x=>x.id))].sort();
+    const eid=`${sym}|${t}`;
+    entries.push({entryId:eid,symbol:sym,t,primarySetup:anchor.id,evidenceIds:ids,evidenceCount:ids.length,dir:s.dir,entry:s.entry,sl:s.sl,baselineTarget:s.target});
+    for(const [exitCode,q] of Object.entries(exits)) if(q) exitRows.push({entryId:eid,symbol:sym,t,primarySetup:anchor.id,evidenceIds:ids,evidenceCount:ids.length,exitCode,r:q.netR,netR:q.netR,grossR:q.grossR,holdMinutes:q.bars*5,reason:q.reason});
+   }
+   done++;if(done%120===0){setStatus(`Entry 고정 재생 · ${entries.length}개`,42+55*done/Math.max(1,times.length));$("mBaseTrades").textContent=entries.length;$("mComboTrades").textContent=entries.filter(x=>x.evidenceCount>=2).length;await sleep(0)}
+  }
+  const exitSummary=Object.keys(EXIT_NAMES).map(code=>{const v=exitRows.filter(x=>x.exitCode===code);return{id:code,key:EXIT_NAMES[code],...metrics(v),winsPerDay:v.filter(x=>x.r>0).length/days}}).sort((a,b)=>b.ev-a.ev);
+  fill("baseTable",exitSummary,[r=>r.key,r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2),r=>r.winsPerDay.toFixed(2),r=>median(exitRows.filter(x=>x.exitCode===r.id).map(x=>x.r)).toFixed(2),r=>quantile(exitRows.filter(x=>x.exitCode===r.id).map(x=>x.r),.95).toFixed(2),r=>r.avgHold.toFixed(1)+"m"]);
+  const strategyRows=[];
+  for(const setup of SETUPS)for(const code of Object.keys(EXIT_NAMES)){const v=exitRows.filter(x=>x.primarySetup===setup.id&&x.exitCode===code);if(v.length)strategyRows.push({key:`${setup.name} / ${EXIT_NAMES[code]}`,...metrics(v),winsPerDay:v.filter(x=>x.r>0).length/days})}
+  strategyRows.sort((a,b)=>b.ev-a.ev);
+  fill("pairTable",strategyRows.slice(0,60),[r=>r.key,r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2),r=>r.winsPerDay.toFixed(2),r=>"—"]);
+  const comboRows=[];
+  for(const code of Object.keys(EXIT_NAMES)){const vv=exitRows.filter(x=>x.exitCode===code&&x.evidenceCount>=2);const gs=group(vv,r=>r.evidenceIds.join("+"),days);for(const g of gs)if(g.n>=5)comboRows.push({...g,key:`${g.key} / ${EXIT_NAMES[code]}`})}
+  comboRows.sort((a,b)=>b.ev-a.ev);
+  fill("multiTable",comboRows.slice(0,60),[r=>r.key,r=>r.key.split("+").length,r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2),r=>r.winsPerDay.toFixed(2)]);
+  const auditRows=[{key:"고정 Entry 수",n:entries.length,desc:"A~G 모두 동일 Entry 사용"},{key:"비용 미달 목표 제외",n:audits.costRejected,desc:"15.5.3 진입 규칙 유지"},{key:"보유중 신호 제외",n:audits.busySkipped,desc:"Entry stream은 baseline A 포지션 종료 기준으로 고정"},{key:"극단값 감사",n:audits.extreme,desc:"기존 검증 유지"}];
+  fill("auditTable",auditRows,[r=>r.key,r=>r.n,r=>r.desc]);
+  const sy=group(exitRows.filter(x=>x.exitCode===exitSummary[0].id),r=>r.symbol,days).sort((a,b)=>b.ev-a.ev);
+  fill("symbolTable",sy,[r=>r.key,r=>r.n,r=>r.winRate.toFixed(1)+"%",r=>r.ev.toFixed(3),r=>r.pf.toFixed(2),r=>r.winsPerDay.toFixed(2)]);
+  const best=exitSummary[0];$("mWinRate").textContent=best.winRate.toFixed(1)+"%";$("mEV").textContent=best.ev.toFixed(3)+"R";$("mInvalid").textContent=invalid.length;$("mExtreme").textContent=audits.extreme;
+  lastExport={version:VERSION,createdAt:new Date().toISOString(),config:{universe,days,stride,entryFee,exitFee,slippagePerSide:slip,entryStreamFrozenTo:"EasyAlNam lecture entry / baseline A exit availability",exitVariants:EXIT_NAMES},pool,totalCandles,entryCount:entries.length,entries,exitSummary,strategyRows,comboRows,audits,invalid,exitRows:exitRows.slice(0,100000)};
+  setStatus(`완료 · Entry ${entries.length} · 최적 ${best.key} · EV ${best.ev.toFixed(3)}R`,100);log(`BEST: ${best.key} | N ${best.n} | WR ${best.winRate.toFixed(1)}% | EV ${best.ev.toFixed(3)}R | PF ${best.pf.toFixed(2)} | wins/day ${best.winsPerDay.toFixed(2)}`);
+ }catch(e){console.error(e);setStatus("오류 발생",0);log(`FATAL: ${e?.stack||e}`)}
+}
+function exportJson(){
+ if(!lastExport){alert("먼저 재검증을 실행하세요.");return}
+ const b=new Blob([JSON.stringify(lastExport,null,2)],{type:"application/json"}),a=document.createElement("a");
+ a.href=URL.createObjectURL(b);a.download=`step15_5_4_exit_lab_${new Date().toISOString().replace(/[:.]/g,"-")}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+}
+$("setupTags").innerHTML=SETUPS.map(x=>`<span class="tag">${x.name}</span>`).join("");
+$("startBtn").addEventListener("click",run);
+$("stopBtn").addEventListener("click",()=>{stopped=true;setStatus("중지 요청됨",0)});
+$("exportBtn").addEventListener("click",exportJson);
+</script>
+</body>
+</html>
