@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>쉽알남 Blind + AnswerKey Generator V2</title>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#0a0f15;color:#edf3f8;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:1350px;margin:auto;padding:10px}
+.top{position:sticky;top:0;z-index:30;background:#0a0f15ef;backdrop-filter:blur(8px);border-bottom:1px solid #293440}
+.card{background:#121923;border:1px solid #293440;border-radius:14px;padding:12px;margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:8px}
+label{display:block;font-size:12px;color:#aab7c4;margin-bottom:4px}
+select,input,button{width:100%;min-height:44px;background:#0b1118;color:#fff;border:1px solid #394959;border-radius:10px;padding:8px;font-size:14px}
+button{font-weight:750;cursor:pointer}
+button.primary{background:#172635}
+button:disabled{opacity:.45}
+.muted{font-size:12px;color:#98a9ba;line-height:1.55}
+.big{font-size:20px;font-weight:800}
+.progress{height:10px;background:#202a35;border-radius:99px;overflow:hidden}
+.progress>div{height:100%;width:0;background:#a9bacb}
+.tag{display:inline-block;border:1px solid #394959;border-radius:999px;padding:5px 8px;margin:2px;font-size:11px}
+pre{white-space:pre-wrap;word-break:break-word;background:#080d12;border-radius:10px;padding:10px;max-height:300px;overflow:auto;font-size:11px}
+table{width:100%;border-collapse:collapse;min-width:850px;font-size:11px}
+th,td{padding:7px;border-bottom:1px solid #293440;text-align:right}
+th:first-child,td:first-child{text-align:left}
+.good{color:#83e7aa}.bad{color:#ff9e9e}.warn{color:#ffd27f}
+</style>
+</head>
+<body>
+<div class="top"><div class="wrap">
+<b>쉽알남 Blind + AnswerKey Generator V2</b>
+<div class="muted">미래누출 방지 · 과거 시점 다건 생성 · 4H/1H/15M/5M 묶음 JSON → ChatGPT 일괄 판정</div>
+</div></div>
+
+<div class="wrap">
+<div class="card">
+<div class="muted"><b>V2 블라인드 구조</b> · 한 번의 생성으로 서로 분리된 두 파일을 만듭니다.
+<b>① 문제지 ZIP</b>에는 cutoff 이전 데이터만, <b>② 정답지 ZIP</b>에는 각 cutoff 이후 72시간의 5분봉만 들어갑니다.
+먼저 문제지만 ChatGPT에 보내고, 100 Round 판정 Freeze가 끝난 뒤 정답지를 보내세요.</div>
+</div>
+<div class="card">
+<div class="muted"><b>V1.1 고정 구조</b> · 총 100 Round를 생성한 뒤 <b>10 Round씩 10개 JSON</b>으로 자동 분할하여 ZIP 하나로 저장합니다.
+각 Round는 4H 90봉 / 1H 120봉 / 15M 140봉 / 5M 160봉으로 축소했습니다.</div>
+</div>
+<div class="card">
+<div class="muted">
+이 도구는 <b>수익률을 계산하지 않습니다.</b> 목적은 ChatGPT가 쉽알남 강의 기반으로 실제 과거 차트를 반복 판정하도록
+미래가 차단된 Calibration 입력을 만드는 것입니다. 각 Round에는 cutoff 이전에 <b>완전히 종료된 봉만</b> 포함됩니다.
+</div>
+<div style="margin-top:7px">
+<span class="tag">HTF Structure</span><span class="tag">현재 위치</span><span class="tag">S/R</span>
+<span class="tag">Trendline</span><span class="tag">Channel</span><span class="tag">OB</span>
+<span class="tag">FVG</span><span class="tag">Liquidity</span><span class="tag">Fake out / Trap</span><span class="tag">Retest</span>
+</div>
+</div>
+
+<div class="card">
+<div class="grid">
+<div><label>종목</label><select id="symbol">
+<option selected>BTCUSDT</option><option>ETHUSDT</option><option>SOLUSDT</option><option>XRPUSDT</option>
+</select></div>
+<div><label>시작일 (UTC)</label><input id="fromDate" type="date" value="2023-01-01"/></div>
+<div><label>종료일 (UTC)</label><input id="toDate" type="date" value="2026-07-31"/></div>
+<div><label>총 Round</label><input id="count" value="100" disabled/></div>
+<div><label>묶음당 Round</label><input value="10" disabled/></div>
+<div><label>묶음 수</label><input value="10" disabled/></div>
+<div><label>최소 Round 간격</label><select id="minGap">
+<option value="6">6시간</option><option value="12">12시간</option><option value="24" selected>24시간</option><option value="72">3일</option>
+</select></div>
+</div>
+
+<div class="grid" style="margin-top:9px">
+<button class="primary" id="buildBtn">100 Round + 정답지 생성</button>
+<button id="stopBtn">중지</button>
+<button id="downloadBlindBtn" disabled>① 문제지 ZIP 저장</button>
+<button id="downloadAnswerBtn" disabled>② 정답지 ZIP 저장</button>
+</div>
+
+<div class="progress" style="margin-top:10px"><div id="bar"></div></div>
+<div class="muted" id="status" style="margin-top:6px">대기</div>
+</div>
+
+<div class="card">
+<div class="grid">
+<div><div class="muted">요청 Round</div><div class="big" id="mRequested">0</div></div>
+<div><div class="muted">완료 Round</div><div class="big" id="mDone">0</div></div>
+<div><div class="muted">폐기 Round</div><div class="big" id="mRejected">0</div></div>
+<div><div class="muted">미래누출 검증</div><div class="big" id="mLeak">0 FAIL</div></div>
+<div><div class="muted">총 캔들</div><div class="big" id="mCandles">0</div></div>
+</div>
+</div>
+
+<div class="card">
+<h3>생성된 Round</h3>
+<div style="overflow:auto"><table><thead><tr>
+<th>#</th><th>Cutoff UTC</th><th>4H</th><th>1H</th><th>15M</th><th>5M</th><th>검증</th>
+</tr></thead><tbody id="roundBody"></tbody></table></div>
+</div>
+
+<div class="card">
+<h3>ChatGPT 판정 규칙</h3>
+<div class="muted">
+Batch를 ChatGPT에 업로드하면 각 Round를 서로 독립적으로 판단합니다. 미래 데이터는 제공되지 않습니다.
+각 Round의 출력은 <b>LONG / SHORT / WAIT</b> 중 하나이며, 거래 시 Entry / SL / TP1 / TP2 / 강의 기반 근거를 Freeze합니다.
+WAIT도 정답 데이터로 보존합니다. 결과를 보고 판단을 수정하면 안 됩니다.
+</div>
+</div>
+
+<div class="card">
+<h3>로그</h3><pre id="log"></pre>
+</div>
+</div>
+
+<script>
+const VERSION="EASYALNAM_BLIND_ANSWERKEY_V2";
+const $=id=>document.getElementById(id);
+let stopped=false,lastBatch=null,lastAnswerKey=null;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function log(s){$("log").textContent+=`[${new Date().toLocaleTimeString()}] ${s}\n`;$("log").scrollTop=$("log").scrollHeight}
+function setStatus(s,p){$("status").textContent=s;if(Number.isFinite(p))$("bar").style.width=Math.max(0,Math.min(100,p))+"%"}
+function api(path,params){return `https://api.bybit.com${path}?${new URLSearchParams(params)}`}
+async function fetchJson(url){
+ const tries=[url,`https://corsproxy.io/?url=${encodeURIComponent(url)}`];
+ let err="";
+ for(const u of tries){
+  try{
+   const r=await fetch(u,{cache:"no-store"});
+   if(!r.ok){err=`HTTP ${r.status}`;continue}
+   const j=await r.json();
+   if(j.retCode!==0){err=j.retMsg||"Bybit error";continue}
+   return j;
+  }catch(e){err=e?.message||String(e)}
+ }
+ throw new Error(err||"데이터 요청 실패");
+}
+async function kline(symbol,interval,end,limit){
+ const j=await fetchJson(api("/v5/market/kline",{category:"linear",symbol,interval:String(interval),end:String(end),limit:String(limit)}));
+ return (j.result?.list||[]).map(r=>({t:+r[0],o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]})).sort((a,b)=>a.t-b.t);
+}
+function lastClosedEnd(cutoff,tfMin){return Math.floor(cutoff/(tfMin*60000))*(tfMin*60000)-1}
+function assertClosed(arr,tfMin,cutoff,label){
+ const last=arr.at(-1);
+ if(!last)throw new Error(`${label}: no data`);
+ if(last.t+tfMin*60000>cutoff)throw new Error(`${label}: LOOKAHEAD`);
+ return true;
+}
+function sampleCutoffs(start,end,count,minGapHours){
+ const minGap=minGapHours*3600000;
+ const chosen=[];
+ let tries=0;
+ while(chosen.length<count&&tries<count*500){
+  tries++;
+  let t=start+Math.random()*(end-start);
+  t=Math.floor(t/300000)*300000;
+  if(chosen.every(x=>Math.abs(x-t)>=minGap))chosen.push(t);
+ }
+ return chosen.sort((a,b)=>a-b);
+}
+async function loadRound(symbol,cutoff){
+ const [d240,d60,d15,d5]=await Promise.all([
+  kline(symbol,"240",lastClosedEnd(cutoff,240),90),
+  kline(symbol,"60",lastClosedEnd(cutoff,60),120),
+  kline(symbol,"15",lastClosedEnd(cutoff,15),140),
+  kline(symbol,"5",lastClosedEnd(cutoff,5),160)
+ ]);
+ if(d240.length<70||d60.length<90||d15.length<100||d5.length<120)throw new Error("INSUFFICIENT_HISTORY");
+ assertClosed(d240,240,cutoff,"4H");assertClosed(d60,60,cutoff,"1H");assertClosed(d15,15,cutoff,"15M");assertClosed(d5,5,cutoff,"5M");
+ return {"4H":d240,"1H":d60,"15M":d15,"5M":d5};
+}
+function appendRoundRow(i,cutoff,candles){
+ const tr=document.createElement("tr");
+ tr.innerHTML=`<td>${i}</td><td>${new Date(cutoff).toISOString().slice(0,16).replace("T"," ")}</td>
+ <td>${candles["4H"].length}</td><td>${candles["1H"].length}</td><td>${candles["15M"].length}</td><td>${candles["5M"].length}</td><td class="good">PASS</td>`;
+ $("roundBody").appendChild(tr);
+}
+
+async function future5m(symbol,cutoff,hours=72){
+ const start=cutoff, end=cutoff+hours*60*60*1000;
+ const out=[]; let cursor=start;
+ while(cursor<=end){
+  const chunkEnd=Math.min(end,cursor+999*300000);
+  const j=await fetchJson(api("/v5/market/kline",{category:"linear",symbol,interval:"5",start:String(cursor),end:String(chunkEnd),limit:"1000"}));
+  const q=(j.result?.list||[]).map(r=>({t:+r[0],o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]})).sort((a,b)=>a.t-b.t);
+  if(!q.length)break;
+  out.push(...q.filter(x=>x.t>=start&&x.t<=end));
+  const nxt=q.at(-1).t+300000;
+  if(nxt<=cursor)break;
+  cursor=nxt;
+  await sleep(40);
+ }
+ const map=new Map(); for(const x of out) map.set(x.t,x);
+ return [...map.values()].sort((a,b)=>a.t-b.t);
+}
+async function build(){
+ stopped=false;lastBatch=null;lastAnswerKey=null;$("downloadBlindBtn").disabled=true;$("downloadAnswerBtn").disabled=true;$("log").textContent="";$("roundBody").innerHTML="";
+ const symbol=$("symbol").value,count=100,minGap=+$("minGap").value;
+ const start=new Date($("fromDate").value+"T00:00:00Z").getTime();
+ const end=new Date($("toDate").value+"T23:55:00Z").getTime();
+ if(!(end>start)){alert("날짜 범위를 확인하세요.");return}
+ $("mRequested").textContent=count;$("mDone").textContent=0;$("mRejected").textContent=0;$("mLeak").textContent="0 FAIL";$("mCandles").textContent=0;
+ const cutoffs=sampleCutoffs(start,end,count*3,minGap);
+ const rounds=[];let rejected=0,totalCandles=0,leak=0;
+ for(const cutoff of cutoffs){
+  if(stopped||rounds.length>=count)break;
+  setStatus(`${symbol} · Round ${rounds.length+1}/${count} 생성`,rounds.length/count*100);
+  try{
+   const candles=await loadRound(symbol,cutoff);
+   totalCandles+=Object.values(candles).reduce((s,a)=>s+a.length,0);
+   const round={
+    round_id:`${symbol}_${cutoff}`,
+    cutoff:new Date(cutoff).toISOString(),
+    symbol,
+    instruction:"Use ONLY these candles. Decide LONG/SHORT/WAIT using the learned EasyAlNam lecture framework. If trade, freeze Entry/SL/TP1/TP2 and rationale. Do not infer future candles.",
+    candles
+   };
+   rounds.push(round);appendRoundRow(rounds.length,cutoff,candles);
+   $("mDone").textContent=rounds.length;$("mCandles").textContent=totalCandles.toLocaleString();
+   log(`PASS ${round.round_id}`);
+  }catch(e){
+   rejected++;if(String(e.message).includes("LOOKAHEAD"))leak++;
+   $("mRejected").textContent=rejected;$("mLeak").textContent=`${leak} FAIL`;
+   log(`REJECT ${new Date(cutoff).toISOString()} · ${e.message}`);
+  }
+  await sleep(70);
+ }
+ if(stopped){setStatus("중지됨",0);return}
+ if(rounds.length<count){setStatus(`완료 부족: ${rounds.length}/${count}`,100);log("충분한 Round를 만들지 못했습니다.");}
+ else setStatus(`완료 · ${rounds.length} Round`,100);
+ lastBatch={
+  version:VERSION,
+  purpose:"CHATGPT_EASYALNAM_BATCH_CALIBRATION",
+  created_at:new Date().toISOString(),
+  authority:"User-provided EasyAlNam photo lectures 1-5 + original 24 videos already learned in conversation.",
+  rules:[
+   "HTF structure and current location first",
+   "Use S/R, trendline, channel, OB, FVG, liquidity as confluence",
+   "Wait for price to come to the setup; no forced trade",
+   "Prefer retest / fakeout-trap / structural reclaim over chasing breakout",
+   "SL at structural invalidation",
+   "TP at opposing structure/liquidity",
+   "WAIT is a valid calibrated decision"
+  ],
+  symbol,requested_count:count,completed_count:rounds.length,min_gap_hours:minGap,
+  lookahead_validation_failures:leak,
+  rounds
+ };
+ if(rounds.length===0)return;
+ $("downloadBlindBtn").disabled=false;
+
+ // 정답지는 문제지 생성과 동시에 별도 메모리에서 생성한다.
+ // 문제지에는 미래봉이 절대 들어가지 않는다.
+ setStatus("문제지 완료 · 정답지용 미래 5분봉 수집 중...",100);
+ const answerRounds=[];
+ for(let i=0;i<rounds.length;i++){
+   if(stopped)break;
+   const r=rounds[i], cutoffMs=Date.parse(r.cutoff);
+   setStatus(`정답지 생성 ${i+1}/${rounds.length}`,100);
+   try{
+     const future=await future5m(symbol,cutoffMs,72);
+     answerRounds.push({
+       round_number:i+1,
+       round_id:r.round_id,
+       cutoff:r.cutoff,
+       symbol,
+       future_window_hours:72,
+       future_5m:future
+     });
+     log(`ANSWER PASS ${i+1}/${rounds.length} · future5m=${future.length}`);
+   }catch(e){
+     answerRounds.push({
+       round_number:i+1,
+       round_id:r.round_id,
+       cutoff:r.cutoff,
+       symbol,
+       future_window_hours:72,
+       future_5m:[],
+       error:String(e.message||e)
+     });
+     log(`ANSWER ERROR ${i+1}: ${e.message}`);
+   }
+ }
+ lastAnswerKey={
+   version:VERSION,
+   purpose:"EASYALNAM_HIDDEN_ANSWER_KEY",
+   created_at:new Date().toISOString(),
+   symbol,
+   warning:"DO NOT UPLOAD THIS FILE BEFORE CHATGPT FREEZES ALL BLIND DECISIONS.",
+   mapping:"round_id matches the blind problem set exactly.",
+   future_window_hours:72,
+   rounds:answerRounds
+ };
+ $("downloadAnswerBtn").disabled=answerRounds.length===0;
+ setStatus(`완료 · 문제지 ${rounds.length} Round + 정답지 ${answerRounds.length} Round`,100);
+}
+async function downloadBlind(){
+ if(!lastBatch)return;
+ if(typeof JSZip==="undefined"){alert("ZIP 라이브러리를 불러오지 못했습니다.");return}
+ const zip=new JSZip();
+ zip.file("MASTER_BLIND_100.json",JSON.stringify(lastBatch,null,2));
+ for(let g=0;g<10;g++){
+   const start=g*10,end=start+10;
+   const part={...lastBatch,requested_count:10,completed_count:lastBatch.rounds.slice(start,end).length,
+     group_number:g+1,round_range:`R${String(start+1).padStart(2,"0")}-R${String(end).padStart(2,"0")}`,
+     rounds:lastBatch.rounds.slice(start,end)};
+   zip.file(`BLIND_GROUP_${String(g+1).padStart(2,"0")}_R${String(start+1).padStart(2,"0")}-R${String(end).padStart(2,"0")}.json`,JSON.stringify(part,null,2));
+ }
+ const blob=await zip.generateAsync({type:"blob",compression:"DEFLATE"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+ a.download=`easyalnam_BLIND_${lastBatch.symbol}_100rounds_10x10_${Date.now()}.zip`;a.click();
+ setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+async function downloadAnswer(){
+ if(!lastAnswerKey)return;
+ if(typeof JSZip==="undefined"){alert("ZIP 라이브러리를 불러오지 못했습니다.");return}
+ const zip=new JSZip();
+ zip.file("MASTER_ANSWER_KEY_100.json",JSON.stringify(lastAnswerKey,null,2));
+ for(let g=0;g<10;g++){
+   const start=g*10,end=start+10;
+   const part={...lastAnswerKey,group_number:g+1,
+     round_range:`R${String(start+1).padStart(2,"0")}-R${String(end).padStart(2,"0")}`,
+     rounds:lastAnswerKey.rounds.slice(start,end)};
+   zip.file(`ANSWER_GROUP_${String(g+1).padStart(2,"0")}_R${String(start+1).padStart(2,"0")}-R${String(end).padStart(2,"0")}.json`,JSON.stringify(part,null,2));
+ }
+ const blob=await zip.generateAsync({type:"blob",compression:"DEFLATE"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+ a.download=`easyalnam_ANSWER_KEY_${lastAnswerKey.symbol}_100rounds_10x10_${Date.now()}.zip`;a.click();
+ setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+$("buildBtn").addEventListener("click",build);
+$("stopBtn").addEventListener("click",()=>{stopped=true;setStatus("중지 요청됨",0)});
+$("downloadBlindBtn").addEventListener("click",downloadBlind);
+$("downloadAnswerBtn").addEventListener("click",downloadAnswer);
+</script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</body>
+</html>
