@@ -1,0 +1,1322 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EasyAlNam Market Monitor — S4</title>
+  <style>
+:root{
+  color-scheme:dark;
+  --bg:#0a0d12;
+  --panel:#111720;
+  --panel-2:#151d28;
+  --border:#263241;
+  --text:#ecf1f7;
+  --muted:#8492a6;
+  --green:#1fd09a;
+  --red:#ff5d73;
+  --accent:#78a9ff;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{display:flex;flex-direction:column}
+.topbar{
+  min-height:76px;display:grid;grid-template-columns:minmax(250px,1fr) auto minmax(180px,1fr);
+  align-items:center;gap:20px;padding:12px 20px;border-bottom:1px solid var(--border);background:#0d1219
+}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;display:grid;place-items:center;border-radius:10px;background:var(--accent);color:#08111f;font-weight:900}
+.brand h1{font-size:16px;margin:0 0 3px}
+.brand p{margin:0;color:var(--muted);font-size:12px}
+.controls{display:flex;align-items:end;gap:14px}
+.controls label{display:flex;flex-direction:column;gap:5px}
+.controls label span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+select,button{
+  border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:8px;
+  min-height:34px;padding:0 11px;font-weight:650
+}
+button{cursor:pointer}
+button:hover{border-color:#41536a}
+button.active{background:#203657;border-color:#4777b9;color:#fff}
+.tf-group{display:flex;gap:5px}
+.market-status{justify-self:end;display:flex;align-items:center;gap:10px}
+.live-dot{width:9px;height:9px;border-radius:50%;background:#5b6470;box-shadow:0 0 0 4px #5b64701a}
+.live-dot.live{background:var(--green);box-shadow:0 0 0 4px #1fd09a1c}
+.live-dot.error{background:var(--red);box-shadow:0 0 0 4px #ff5d731c}
+#connectionText{font-size:11px;color:var(--muted);text-align:right}
+.price{font-size:20px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+.workspace{
+  flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px;padding:12px
+}
+.chart-card,.side-panel{min-height:0}
+.chart-card{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.chart-head{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid var(--border)}
+.chart-head strong{font-size:14px}
+.chart-head #candleState{font-size:11px;color:var(--muted);margin-left:9px}
+.legend{display:flex;gap:7px;color:var(--muted);font-size:11px}
+#chart{flex:1;min-height:500px}
+.chart-error{position:absolute;inset:70px 20px auto 20px;padding:12px;border:1px solid #703443;background:#351821;color:#ffd7df;border-radius:8px;z-index:5}
+.hidden{display:none}
+.side-panel{display:flex;flex-direction:column;gap:12px;overflow:auto}
+.panel-block{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
+.panel-block h2{font-size:13px;margin:0 0 12px}
+.panel-title{display:flex;align-items:center;justify-content:space-between}
+.stage-badge{font-size:10px;background:#203657;padding:3px 7px;border-radius:999px;color:#bcd7ff}
+.empty-state{padding:18px 12px;background:#0d131b;border:1px dashed #334256;border-radius:9px}
+.empty-state strong{font-size:12px}
+.empty-state p{font-size:11px;color:var(--muted);line-height:1.5;margin:6px 0 0}
+.tf-status-list{display:flex;flex-direction:column;gap:8px}
+.tf-status-list div{display:flex;justify-content:space-between;padding:8px 10px;background:#0d131b;border-radius:7px}
+.tf-status-list span{font-size:11px;color:var(--muted)}
+.tf-status-list strong{font-size:10px;color:var(--green)}
+.roadmap{padding-left:20px;margin:0;color:var(--muted);font-size:11px;line-height:1.9}
+.roadmap .done{color:var(--green);font-weight:700}
+footer{padding:8px 16px;border-top:1px solid var(--border);color:#657287;font-size:10px;background:#0d1219}
+@media(max-width:900px){
+  .topbar{grid-template-columns:1fr;gap:10px}
+  .controls{justify-content:space-between}
+  .market-status{justify-self:start}
+  .workspace{grid-template-columns:1fr}
+  .side-panel{display:grid;grid-template-columns:1fr 1fr}
+  .side-panel .panel-block:first-child{grid-column:1/-1}
+  #chart{min-height:460px}
+}
+@media(max-width:560px){
+  .topbar{padding:10px}
+  .controls{align-items:stretch;flex-direction:column}
+  .tf-group{display:grid;grid-template-columns:repeat(4,1fr)}
+  .workspace{padding:6px}
+  .side-panel{display:flex}
+  .legend{display:none}
+}
+
+
+.chart-wrap{position:relative;flex:1;min-height:500px}
+.chart-wrap #chart{position:absolute;inset:0;min-height:0}
+#structureOverlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4}
+.overlay-toggle{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#9ba9bc;white-space:nowrap}
+.overlay-toggle input{accent-color:#78a9ff}
+.structure-summary{display:flex;flex-direction:column;gap:8px}
+.summary-row{display:flex;justify-content:space-between;align-items:center;background:#0d131b;border-radius:7px;padding:9px 10px}
+.summary-row span{font-size:11px;color:#8fa0b6}
+.summary-row strong{font-size:11px;color:#ecf1f7}
+.summary-note{font-size:10px;line-height:1.55;color:#7f8da1;padding:8px 2px 0}
+
+
+.tf-overlay-group{display:inline-flex;align-items:center;gap:3px}
+.tf-toggle{padding:2px 5px;border:1px solid #2e3b4d;border-radius:5px;background:#121923}
+.tf-toggle input{margin:0 2px 0 0}
+.legend-divider{color:#506073}
+@media(max-width:760px){
+  .tf-overlay-group{display:grid;grid-template-columns:repeat(4,auto);gap:3px}
+}
+
+
+.trend-label{font-weight:800}
+.channel-label{font-weight:800}
+
+
+.overlay-matrix-block{overflow:hidden}
+.overlay-matrix-wrap{overflow-x:auto}
+.overlay-matrix{width:100%;border-collapse:collapse;font-size:10px}
+.overlay-matrix th,.overlay-matrix td{padding:5px 3px;text-align:center;border-bottom:1px solid #222e3c}
+.overlay-matrix thead th{color:#7f8ea2;font-weight:700}
+.overlay-matrix tbody th{color:#d8e2ef;font-weight:800}
+.overlay-matrix input{width:14px;height:14px;accent-color:#78a9ff}
+.matrix-note{font-size:9px;line-height:1.45;color:#748298;margin-top:8px}
+.mini-button{min-height:26px;padding:0 7px;font-size:9px}
+.liquidity-line-label{font-size:9px;font-weight:800}
+.event-badge{font-size:9px;font-weight:800}
+
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">EA</div>
+      <div>
+        <h1>EasyAlNam Market Monitor</h1>
+        <p>S4 · Liquidity / Fake out / Trap</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label>
+        <span>Symbol</span>
+        <select id="symbol">
+          <option>BTCUSDT</option>
+          <option>ETHUSDT</option>
+          <option>XRPUSDT</option>
+          <option>SOLUSDT</option>
+        </select>
+      </label>
+
+      <div class="tf-group" id="tfGroup" aria-label="Timeframe">
+        <button data-tf="240">4H</button>
+        <button data-tf="60">1H</button>
+        <button class="active" data-tf="15">15M</button>
+        <button data-tf="5">5M</button>
+      </div>
+    </div>
+
+    <div class="market-status">
+      <div id="liveDot" class="live-dot"></div>
+      <div>
+        <div id="connectionText">연결 준비</div>
+        <div id="priceText" class="price">—</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="chart-card">
+      <div class="chart-head">
+        <div>
+          <strong id="chartTitle">BTCUSDT · 15M</strong>
+          <span id="candleState">—</span>
+        </div>
+        <div class="legend">
+          <label class="overlay-toggle"><input id="toggleSwing" type="checkbox" checked> Swing</label>
+          <label class="overlay-toggle"><input id="toggleFvg" type="checkbox" checked> FVG</label>
+          <label class="overlay-toggle"><input id="toggleOb" type="checkbox" checked> OB 후보</label>
+          <label class="overlay-toggle"><input id="toggleTrend" type="checkbox" checked> Trend</label>
+          <label class="overlay-toggle"><input id="toggleChannel" type="checkbox" checked> Channel</label>
+          <label class="overlay-toggle"><input id="toggleLiquidity" type="checkbox" checked> Liquidity</label>
+          <label class="overlay-toggle"><input id="toggleFakeout" type="checkbox" checked> Fake/Trap</label>
+          <span class="legend-divider">·</span>
+          <span class="legend-divider">·</span>
+          <span id="lastUpdate">—</span>
+        </div>
+      </div>
+      <div class="chart-wrap"><div id="chart"></div><canvas id="structureOverlay"></canvas></div>
+      <div id="chartError" class="chart-error hidden"></div>
+    </section>
+
+    <aside class="side-panel">
+      <section class="panel-block">
+        <div class="panel-title">
+          <h2>현재 구조</h2>
+          <span class="stage-badge">S4</span>
+        </div>
+        <div id="structureSummary" class="structure-summary">
+          <div class="summary-row"><span>Local Swing</span><strong id="swingSummary">—</strong></div>
+          <div class="summary-row"><span>FVG</span><strong id="fvgSummary">—</strong></div>
+          <div class="summary-row"><span>OB 후보</span><strong id="obSummary">—</strong></div>
+          <div class="summary-row"><span>OB 필터</span><strong id="obFilterSummary">2× / min 0.25× median</strong></div>
+          <div class="summary-row"><span>Trend Line 후보</span><strong id="trendSummary">—</strong></div>
+          <div class="summary-row"><span>Channel 후보</span><strong id="channelSummary">—</strong></div>
+          <div class="summary-row"><span>Liquidity</span><strong id="liquiditySummary">—</strong></div>
+          <div class="summary-row"><span>Fake/Trap</span><strong id="fakeoutSummary">—</strong></div>
+          <div class="summary-row"><span>상위 TF 중첩</span><strong id="htfSummary">—</strong></div>
+          <div class="summary-note">OB는 <b>인접 반대색 캔들의 몸통 겹침 영역</b>으로 표시합니다. 두 번째 캔들 몸통은 이전 캔들보다 최소 2배 커야 하고 초소형 몸통은 제외합니다. FVG/OB는 이제 7일이 아니라 <b>각 시간봉 최근 30개 캔들</b> 기준입니다.</div>
+        </div>
+      </section>
+
+      <section class="panel-block">
+        <h2>멀티 타임프레임</h2>
+        <div class="tf-status-list">
+          <div><span>4H</span><strong>DATA READY</strong></div>
+          <div><span>1H</span><strong>DATA READY</strong></div>
+          <div><span>15M</span><strong>DATA READY</strong></div>
+          <div><span>5M</span><strong>DATA READY</strong></div>
+        </div>
+      </section>
+
+
+      <section class="panel-block overlay-matrix-block">
+        <div class="panel-title">
+          <h2>시간봉 × 구조물 ON/OFF</h2>
+          <button id="toggleAllOverlays" class="mini-button" type="button">전체 ON/OFF</button>
+        </div>
+        <div class="overlay-matrix-wrap">
+          <table class="overlay-matrix">
+            <thead>
+              <tr>
+                <th>TF</th>
+                <th>Sw</th>
+                <th>FVG</th>
+                <th>OB</th>
+                <th>Tr</th>
+                <th>Ch</th>
+                <th>Liq</th>
+                <th>F/T</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-tfrow="240"><th>4H</th></tr>
+              <tr data-tfrow="60"><th>1H</th></tr>
+              <tr data-tfrow="15"><th>15M</th></tr>
+              <tr data-tfrow="5"><th>5M</th></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="matrix-note">예: 4H FVG만 끄거나, 1H OB만 끌 수 있습니다. FVG/OB는 각 시간봉의 최근 30개 캔들 안에서 생성된 구조만 표시합니다.</div>
+      </section>
+
+      <section class="panel-block">
+        <h2>다음 개발</h2>
+        <ol class="roadmap">
+          <li class="done">S1 · 실시간 차트</li>
+          <li class="done">S2 · Swing / FVG / OB 후보</li>
+          <li class="done">S4 · Liquidity / Fake out / Trap</li>
+          <li class="done">S4 · Liquidity / Fake out / Trap</li>
+          <li>S5 · State / Multi-TF</li>
+          <li>S6 · Overlay / Alert</li>
+        </ol>
+      </section>
+    </aside>
+  </main>
+
+  <footer>
+    S4: FVG/OB는 각 시간봉의 최근 30개 캔들 안에서 형성된 구조만 표시합니다. 시간봉×구조물별 개별 ON/OFF와 Liquidity/Fake out/Trap 후보를 추가합니다.
+  </footer>
+
+  <script src="https://unpkg.com/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
+  <script>
+(() => {
+  const REST = 'https://api.bybit.com/v5/market/kline';
+  const WS = 'wss://stream.bybit.com/v5/public/linear';
+
+  const TF_LABEL = {
+    '240': '4H',
+    '60': '1H',
+    '15': '15M',
+    '5': '5M',
+  };
+
+  const symbolEl = document.getElementById('symbol');
+  const tfGroup = document.getElementById('tfGroup');
+  const chartTitle = document.getElementById('chartTitle');
+  const liveDot = document.getElementById('liveDot');
+  const connectionText = document.getElementById('connectionText');
+  const priceText = document.getElementById('priceText');
+  const candleState = document.getElementById('candleState');
+  const lastUpdate = document.getElementById('lastUpdate');
+  const errorBox = document.getElementById('chartError');
+
+  let selectedTf = '15';
+  let ws = null;
+  let heartbeat = null;
+  let reconnectTimer = null;
+  let generation = 0;
+
+  const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+    autoSize: true,
+    layout: {
+      background: { type: LightweightCharts.ColorType.Solid, color: '#111720' },
+      textColor: '#91a0b5',
+      attributionLogo: true,
+    },
+    grid: {
+      vertLines: { color: '#1d2733' },
+      horzLines: { color: '#1d2733' },
+    },
+    rightPriceScale: {
+      borderColor: '#2a3747',
+      scaleMargins: { top: 0.08, bottom: 0.08 },
+    },
+    timeScale: {
+      borderColor: '#2a3747',
+      timeVisible: true,
+      secondsVisible: false,
+      rightOffset: 8,
+    },
+    crosshair: {
+      mode: LightweightCharts.CrosshairMode.Normal,
+    },
+  });
+
+  window.EAChart = chart;
+  const candles = chart.addSeries(LightweightCharts.CandlestickSeries, {
+    upColor: '#22c596',
+    downColor: '#f05d72',
+    wickUpColor: '#22c596',
+    wickDownColor: '#f05d72',
+    borderVisible: false,
+    priceLineVisible: true,
+    lastValueVisible: true,
+  });
+
+  window.EACandles = candles;
+  const volume = chart.addSeries(LightweightCharts.HistogramSeries, {
+    priceFormat: { type: 'volume' },
+    priceScaleId: '',
+    lastValueVisible: false,
+    priceLineVisible: false,
+  });
+  volume.priceScale().applyOptions({
+    scaleMargins: { top: 0.82, bottom: 0 },
+  });
+
+  function setError(message = '') {
+    if (!message) {
+      errorBox.textContent = '';
+      errorBox.classList.add('hidden');
+      return;
+    }
+    errorBox.textContent = message;
+    errorBox.classList.remove('hidden');
+  }
+
+  function setConnection(state, text) {
+    liveDot.classList.remove('live', 'error');
+    if (state === 'live') liveDot.classList.add('live');
+    if (state === 'error') liveDot.classList.add('error');
+    connectionText.textContent = text;
+  }
+
+  function fmtPrice(value) {
+    if (!Number.isFinite(value)) return '—';
+    if (value >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    if (value >= 1) return value.toLocaleString(undefined, { maximumFractionDigits: 4 });
+    return value.toLocaleString(undefined, { maximumFractionDigits: 6 });
+  }
+
+  function toChartBar(row) {
+    return {
+      time: Math.floor(Number(row[0]) / 1000),
+      open: Number(row[1]),
+      high: Number(row[2]),
+      low: Number(row[3]),
+      close: Number(row[4]),
+    };
+  }
+
+  function toVolumeBar(row) {
+    const open = Number(row[1]);
+    const close = Number(row[4]);
+    return {
+      time: Math.floor(Number(row[0]) / 1000),
+      value: Number(row[5]),
+      color: close >= open ? 'rgba(34,197,150,.30)' : 'rgba(240,93,114,.30)',
+    };
+  }
+
+  async function loadHistory(myGeneration) {
+    const symbol = symbolEl.value;
+    const params = new URLSearchParams({
+      category: 'linear',
+      symbol,
+      interval: selectedTf,
+      limit: '500',
+    });
+
+    setConnection('idle', '과거 데이터 로딩');
+    setError('');
+
+    const res = await fetch(`${REST}?${params.toString()}`);
+    if (!res.ok) throw new Error(`Bybit REST HTTP ${res.status}`);
+    const body = await res.json();
+    if (body.retCode !== 0) throw new Error(body.retMsg || 'Bybit REST 오류');
+    if (myGeneration !== generation) return;
+
+    const rows = [...body.result.list].reverse();
+    const chartData = rows.map(toChartBar);
+    const volumeData = rows.map(toVolumeBar);
+
+    candles.setData(chartData);
+    volume.setData(volumeData);
+    chart.timeScale().fitContent();
+
+    const latest = chartData.at(-1);
+    if (latest) {
+      priceText.textContent = fmtPrice(latest.close);
+      lastUpdate.textContent = new Date().toLocaleTimeString();
+    }
+  }
+
+  function cleanupWs() {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+      heartbeat = null;
+    }
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    if (ws) {
+      ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
+      try { ws.close(); } catch (_) {}
+      ws = null;
+    }
+  }
+
+  function connectWs(myGeneration) {
+    cleanupWs();
+    const symbol = symbolEl.value;
+    const topic = `kline.${selectedTf}.${symbol}`;
+
+    setConnection('idle', '실시간 연결 중');
+
+    ws = new WebSocket(WS);
+
+    ws.onopen = () => {
+      if (myGeneration !== generation) return;
+      ws.send(JSON.stringify({
+        op: 'subscribe',
+        args: [topic],
+      }));
+
+      heartbeat = setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ op: 'ping' }));
+        }
+      }, 20000);
+
+      setConnection('live', 'LIVE · Bybit');
+    };
+
+    ws.onmessage = (event) => {
+      if (myGeneration !== generation) return;
+      const msg = JSON.parse(event.data);
+      if (msg.topic !== topic || !Array.isArray(msg.data) || !msg.data.length) return;
+
+      const k = msg.data[0];
+      const bar = {
+        time: Math.floor(Number(k.start) / 1000),
+        open: Number(k.open),
+        high: Number(k.high),
+        low: Number(k.low),
+        close: Number(k.close),
+      };
+
+      candles.update(bar);
+      volume.update({
+        time: bar.time,
+        value: Number(k.volume),
+        color: bar.close >= bar.open ? 'rgba(34,197,150,.30)' : 'rgba(240,93,114,.30)',
+      });
+
+      priceText.textContent = fmtPrice(bar.close);
+      candleState.textContent = k.confirm ? 'CLOSED' : 'LIVE CANDLE';
+      lastUpdate.textContent = new Date(Number(k.timestamp || Date.now())).toLocaleTimeString();
+    };
+
+    ws.onerror = () => {
+      if (myGeneration !== generation) return;
+      setConnection('error', 'WebSocket 오류');
+    };
+
+    ws.onclose = () => {
+      if (myGeneration !== generation) return;
+      if (heartbeat) {
+        clearInterval(heartbeat);
+        heartbeat = null;
+      }
+      setConnection('error', '재연결 대기');
+      reconnectTimer = setTimeout(() => connectWs(myGeneration), 2500);
+    };
+  }
+
+  async function reload() {
+    generation += 1;
+    const myGeneration = generation;
+    cleanupWs();
+
+    chartTitle.textContent = `${symbolEl.value} · ${TF_LABEL[selectedTf]}`;
+    candleState.textContent = '—';
+
+    try {
+      await loadHistory(myGeneration);
+      if (myGeneration !== generation) return;
+      connectWs(myGeneration);
+    } catch (err) {
+      console.error(err);
+      if (myGeneration !== generation) return;
+      setConnection('error', '데이터 연결 실패');
+      setError(
+        `시장 데이터를 불러오지 못했습니다: ${err.message}. ` +
+        `네트워크 또는 Bybit 접속 제한을 확인한 뒤 새로고침해 주세요.`
+      );
+    }
+  }
+
+  symbolEl.addEventListener('change', reload);
+
+  tfGroup.addEventListener('click', (e) => {
+    const button = e.target.closest('button[data-tf]');
+    if (!button || button.dataset.tf === selectedTf) return;
+    selectedTf = button.dataset.tf;
+    [...tfGroup.querySelectorAll('button')].forEach((b) => {
+      b.classList.toggle('active', b === button);
+    });
+    reload();
+  });
+
+  window.addEventListener('beforeunload', cleanupWs);
+  reload();
+})();
+
+</script>
+
+<script>
+(() => {
+  const overlay = document.getElementById('structureOverlay');
+  const swingSummary = document.getElementById('swingSummary');
+  const fvgSummary = document.getElementById('fvgSummary');
+  const obSummary = document.getElementById('obSummary');
+  const obFilterSummary = document.getElementById('obFilterSummary');
+  const htfSummary = document.getElementById('htfSummary');
+  const toggleSwing = document.getElementById('toggleSwing');
+  const toggleFvg = document.getElementById('toggleFvg');
+  const toggleOb = document.getElementById('toggleOb');
+  const toggleTrend = document.getElementById('toggleTrend');
+  const toggleChannel = document.getElementById('toggleChannel');
+  const toggleLiquidity = document.getElementById('toggleLiquidity');
+  const toggleFakeout = document.getElementById('toggleFakeout');
+  const liquiditySummary = document.getElementById('liquiditySummary');
+  const fakeoutSummary = document.getElementById('fakeoutSummary');
+  const toggleAllOverlays = document.getElementById('toggleAllOverlays');
+  const trendSummary = document.getElementById('trendSummary');
+  const channelSummary = document.getElementById('channelSummary');
+  const STRUCTURE_TYPES = ['swing','fvg','ob','trend','channel','liquidity','faketrap'];
+  const tfStructureToggles = {};
+  const RECENT_CANDLE_LIMIT = 30;
+
+  const TF_LABEL = {'240':'4H','60':'1H','15':'15M','5':'5M'};
+  const TF_RANK = {'5':0,'15':1,'60':2,'240':3};
+  let cache = {};
+  let generation = 0;
+  let redrawScheduled = false;
+
+  function chart(){ return window.EAChart; }
+  function candleSeries(){ return window.EACandles; }
+  function activeTf(){
+    const b=document.querySelector('#tfGroup button.active');
+    return b ? b.dataset.tf : '15';
+  }
+  function symbol(){ return document.getElementById('symbol').value; }
+
+  function neededTfs(){
+    const cur=activeTf();
+    return Object.keys(TF_RANK)
+      .filter(tf => TF_RANK[tf] >= TF_RANK[cur])
+      .sort((a,b)=>TF_RANK[a]-TF_RANK[b]);
+  }
+
+  function buildOverlayMatrix(){
+    const short = {swing:'',fvg:'',ob:'',trend:'',channel:'',liquidity:'',faketrap:''};
+    document.querySelectorAll('tr[data-tfrow]').forEach(row=>{
+      const tf=row.dataset.tfrow;
+      tfStructureToggles[tf]={};
+      for(const type of STRUCTURE_TYPES){
+        const td=document.createElement('td');
+        const cb=document.createElement('input');
+        cb.type='checkbox';
+        cb.checked=true;
+        cb.dataset.tf=tf;
+        cb.dataset.structure=type;
+        cb.addEventListener('change',scheduleDraw);
+        td.appendChild(cb);
+        row.appendChild(td);
+        tfStructureToggles[tf][type]=cb;
+      }
+    });
+  }
+
+  function structureEnabled(tf,type){
+    const cb=tfStructureToggles?.[tf]?.[type];
+    return cb ? cb.checked : true;
+  }
+
+  function formedWithinLast30(zone,bars){
+    if(!bars || !bars.length) return false;
+    const start=Math.max(0,bars.length-RECENT_CANDLE_LIMIT);
+    return zone.formedIndex!=null
+      ? zone.formedIndex>=start
+      : zone.formed>=bars[start].t;
+  }
+
+  async function fetchBars(tf, gen){
+    const q=new URLSearchParams({category:'linear',symbol:symbol(),interval:tf,limit:'500'});
+    const r=await fetch(`https://api.bybit.com/v5/market/kline?${q}`);
+    const j=await r.json();
+    if(gen!==generation || j.retCode!==0) return null;
+    return [...j.result.list].reverse().map(x=>({
+      t:Math.floor(Number(x[0])/1000),
+      o:Number(x[1]),h:Number(x[2]),l:Number(x[3]),c:Number(x[4]),v:Number(x[5])
+    }));
+  }
+
+  async function reloadStructureData(){
+    const gen=++generation;
+    const next={};
+    try{
+      const rows=await Promise.all(neededTfs().map(async tf => [tf,await fetchBars(tf,gen)]));
+      if(gen!==generation) return;
+      for(const [tf,b] of rows) if(b) next[tf]=b;
+      cache=next;
+      scheduleDraw();
+    }catch(e){ console.warn('S2.2 structure load failed',e); }
+  }
+
+  function body(b){ return Math.abs(b.c-b.o); }
+  function median(xs){
+    if(!xs.length) return 0;
+    const a=[...xs].sort((x,y)=>x-y), m=Math.floor(a.length/2);
+    return a.length%2?a[m]:(a[m-1]+a[m])/2;
+  }
+
+  function swings(bars,k=2){
+    const highs=[],lows=[];
+    for(let i=k;i<bars.length-k;i++){
+      let hi=true,lo=true;
+      for(let j=i-k;j<=i+k;j++){
+        if(j===i) continue;
+        if(bars[j].h>bars[i].h) hi=false;
+        if(bars[j].l<bars[i].l) lo=false;
+      }
+      if(hi) highs.push({i,t:bars[i].t,p:bars[i].h,type:'H'});
+      if(lo) lows.push({i,t:bars[i].t,p:bars[i].l,type:'L'});
+    }
+    return {highs,lows};
+  }
+
+  function fvgState(z,bars,start){
+    let touched=false,filled=false;
+    for(let i=start;i<bars.length;i++){
+      const b=bars[i];
+      if(b.h>=z.lo && b.l<=z.hi) touched=true;
+      if(z.type==='BULL' && b.l<=z.lo) filled=true;
+      if(z.type==='BEAR' && b.h>=z.hi) filled=true;
+      if(filled) break;
+    }
+    const last=bars.at(-1);
+    if(filled) return 'FILLED';
+    if(last && last.c>=z.lo && last.c<=z.hi) return 'INSIDE';
+    return touched?'TOUCHED':'OPEN';
+  }
+
+  function fvgs(bars){
+    const out=[];
+    for(let i=2;i<bars.length;i++){
+      const a=bars[i-2],m=bars[i-1],c=bars[i];
+      const qualified=body(m)>=2*Math.max(body(a),1e-12) && body(m)>=2*Math.max(body(c),1e-12);
+      if(c.l>a.h){
+        const z={kind:'FVG',type:'BULL',start:a.t,formed:c.t,lo:a.h,hi:c.l,formedIndex:i,qualified};
+        z.state=fvgState(z,bars,i+1); out.push(z);
+      }
+      if(c.h<a.l){
+        const z={kind:'FVG',type:'BEAR',start:a.t,formed:c.t,lo:c.h,hi:a.l,formedIndex:i,qualified};
+        z.state=fvgState(z,bars,i+1); out.push(z);
+      }
+    }
+    return out;
+  }
+
+  function zoneState(z,bars,start){
+    let touched=false;
+    for(let i=start;i<bars.length;i++) if(bars[i].h>=z.lo && bars[i].l<=z.hi) touched=true;
+    const last=bars.at(-1);
+    if(last && last.c>=z.lo && last.c<=z.hi) return 'INSIDE';
+    return touched?'TOUCHED':'ACTIVE';
+  }
+
+  // EasyAlNam OB — BODY OVERLAP + SIZE FILTER.
+  //
+  // User-approved OB filter:
+  //   1) Two adjacent candles are opposite colors.
+  //   2) Their BODY ranges overlap.
+  //   3) The overlap itself is the OB zone.
+  //   4) The second candle body must be >= 2.0 × the previous candle body.
+  //   5) Both bodies must be >= 0.25 × recent median candle body.
+  //
+  // Note: #4 is user-defined. #5 is a program noise filter, not an instructor rule.
+  // BOS / FVG remain confidence evidence only, not mandatory OB existence gates.
+  function obCandidates(bars,sw,fv){
+    const out=[];
+
+    function bodyLo(b){ return Math.min(b.o,b.c); }
+    function bodyHi(b){ return Math.max(b.o,b.c); }
+    function color(b){
+      if(b.c>b.o) return 1;
+      if(b.c<b.o) return -1;
+      return 0;
+    }
+
+    const bodySeries=bars.slice(-120).map(body).filter(v=>v>0);
+    const medBody=median(bodySeries);
+    const minBody=medBody*0.25;
+
+    for(let i=1;i<bars.length;i++){
+      const prev=bars[i-1];
+      const cur=bars[i];
+      const pColor=color(prev), cColor=color(cur);
+
+      if(!pColor || !cColor || pColor===cColor) continue;
+
+      const prevBody=body(prev);
+      const curBody=body(cur);
+
+      // Remove tiny/noise candles.
+      if(prevBody<minBody || curBody<minBody) continue;
+
+      // User rule: expansion body must be at least 2× previous body.
+      if(curBody < 2*prevBody) continue;
+
+      // Exact BODY intersection.
+      const lo=Math.max(bodyLo(prev),bodyLo(cur));
+      const hi=Math.min(bodyHi(prev),bodyHi(cur));
+      if(!(hi>lo)) continue;
+
+      const bull=cColor>0;
+
+      // Confidence evidence only.
+      const prior=bull
+        ? sw.highs.filter(x=>x.i<i-1).at(-1)
+        : sw.lows.filter(x=>x.i<i-1).at(-1);
+
+      const bos=!!prior && (bull ? cur.c>prior.p : cur.c<prior.p);
+      const nearbyFvg=fv.some(f=>Math.abs(f.formedIndex-i)<=1);
+      const expansionRatio=curBody/Math.max(prevBody,1e-12);
+
+      const evidence=[];
+      if(bos) evidence.push('BOS');
+      if(nearbyFvg) evidence.push('FVG');
+      evidence.push(`BODY×${expansionRatio.toFixed(1)}`);
+
+      const z={
+        kind:'OB',
+        type:bull?'BULL':'BEAR',
+        start:prev.t,
+        formed:cur.t,
+        lo,hi,
+        bodyOverlap:true,
+        firstCandleIndex:i-1,
+        secondCandleIndex:i,
+        formedIndex:i,
+        expansionRatio,
+        minBodyFilter:minBody,
+        confidence:(bos&&nearbyFvg)?'STRONG':((bos||nearbyFvg)?'SUPPORTED':'BASIC'),
+        evidence,
+        wickInvalidation:bull ? Math.min(prev.l,cur.l) : Math.max(prev.h,cur.h)
+      };
+      z.state=zoneState(z,bars,i+1);
+      out.push(z);
+    }
+    return out;
+  }
+
+  function trendCandidates(bars, sw){
+    const out=[];
+
+    function build(points, type){
+      // Require at least 2 wick pivots. Prefer 3 if available.
+      if(points.length < 2) return null;
+      const pts = points.slice(-3);
+      const a = pts[0], b = pts[pts.length-1];
+      if(b.i <= a.i) return null;
+      const slope = (b.p-a.p)/(b.i-a.i);
+
+      // Rising lows for support / falling highs for resistance.
+      if(type==='UP' && slope<=0) return null;
+      if(type==='DOWN' && slope>=0) return null;
+
+      // Middle pivot (if present) should stay reasonably close to the line.
+      let quality='CANDIDATE';
+      if(pts.length===3){
+        const mid=pts[1];
+        const pred=a.p+slope*(mid.i-a.i);
+        const span=Math.max(...bars.slice(a.i,b.i+1).map(x=>x.h-x.l),1e-9);
+        const err=Math.abs(mid.p-pred)/span;
+        if(err<=0.35) quality='STRONG_CANDIDATE';
+      }
+
+      return {
+        kind:'TREND',
+        type,
+        points:pts,
+        start:a.t,
+        formed:b.t,
+        slopePerIndex:slope,
+        quality
+      };
+    }
+
+    const up = build(sw.lows,'UP');
+    const down = build(sw.highs,'DOWN');
+    if(up) out.push(up);
+    if(down) out.push(down);
+    return out;
+  }
+
+  function channelCandidates(bars, sw){
+    const out=[];
+
+    // Use recent wick pivots and preserve lecture meaning:
+    // channel = main trend line + parallel opposite line.
+    // Because lecture gives no numeric tolerance for "perfectly parallel",
+    // we label every auto-detected object as CANDIDATE.
+    function tryBuild(mainPts, oppPts, dir){
+      if(mainPts.length<2 || oppPts.length<2) return null;
+      const mA=mainPts.slice(-2);
+      const oA=oppPts.slice(-2);
+      const a1=mA[0], a2=mA[1], b1=oA[0], b2=oA[1];
+      if(a2.i<=a1.i || b2.i<=b1.i) return null;
+
+      const m1=(a2.p-a1.p)/(a2.i-a1.i);
+      const m2=(b2.p-b1.p)/(b2.i-b1.i);
+
+      if(dir==='UP' && (m1<=0 || m2<=0)) return null;
+      if(dir==='DOWN' && (m1>=0 || m2>=0)) return null;
+
+      const denom=Math.max(Math.abs(m1),Math.abs(m2),1e-9);
+      const parallelDiff=Math.abs(m1-m2)/denom;
+
+      // This is not an instructor threshold; only a visual-candidate filter.
+      // We keep the state explicitly as candidate and expose the difference.
+      if(parallelDiff>0.35) return null;
+
+      const formed=Math.max(a2.t,b2.t);
+
+      // minimum 3 total points across both boundaries
+      const pointCount=mA.length+oA.length;
+      if(pointCount<4) return null;
+
+      return {
+        kind:'CHANNEL',
+        type:dir,
+        main:mA,
+        opp:oA,
+        formed,
+        parallelDiff,
+        quality:parallelDiff<=0.15?'STRONG_CANDIDATE':'CANDIDATE'
+      };
+    }
+
+    const up=tryBuild(sw.lows,sw.highs,'UP');
+    const down=tryBuild(sw.highs,sw.lows,'DOWN');
+    if(up) out.push(up);
+    if(down) out.push(down);
+    return out;
+  }
+
+
+  function liquidityLevels(bars, sw){
+    const start=Math.max(0,bars.length-RECENT_CANDLE_LIMIT);
+    const highs=sw.highs.filter(x=>x.i>=start).slice(-6).map(x=>({
+      kind:'LIQUIDITY',side:'BUY_SIDE',level:x.p,t:x.t,i:x.i
+    }));
+    const lows=sw.lows.filter(x=>x.i>=start).slice(-6).map(x=>({
+      kind:'LIQUIDITY',side:'SELL_SIDE',level:x.p,t:x.t,i:x.i
+    }));
+    return [...highs,...lows].sort((a,b)=>a.t-b.t);
+  }
+
+  function fakeTrapCandidates(bars, sw){
+    const out=[];
+    const start=Math.max(2,bars.length-RECENT_CANDLE_LIMIT);
+
+    for(let i=start;i<bars.length;i++){
+      const b=bars[i];
+
+      const priorHigh=sw.highs.filter(x=>x.i<i).at(-1);
+      const priorLow=sw.lows.filter(x=>x.i<i).at(-1);
+
+      // Fake out candidate:
+      // pierce a prior structure with wick, but close back inside in same candle.
+      if(priorHigh && b.h>priorHigh.p && b.c<priorHigh.p){
+        out.push({
+          kind:'FAKEOUT',type:'BEAR',formed:b.t,formedIndex:i,
+          level:priorHigh.p,extreme:b.h,state:'RETURNED_INSIDE'
+        });
+      }
+      if(priorLow && b.l<priorLow.p && b.c>priorLow.p){
+        out.push({
+          kind:'FAKEOUT',type:'BULL',formed:b.t,formedIndex:i,
+          level:priorLow.p,extreme:b.l,state:'RETURNED_INSIDE'
+        });
+      }
+
+      // Trap candidate:
+      // close beyond structure, remain outside at least one candle, then close back inside.
+      if(i>=2){
+        const p1=bars[i-1], p2=bars[i-2];
+
+        const high2=sw.highs.filter(x=>x.i<i-2).at(-1);
+        if(high2 && p2.c>high2.p && p1.c>high2.p && b.c<high2.p){
+          out.push({
+            kind:'TRAP',type:'BEAR',formed:b.t,formedIndex:i,
+            level:high2.p,extreme:Math.max(p2.h,p1.h,b.h),state:'RETURNED_INSIDE'
+          });
+        }
+
+        const low2=sw.lows.filter(x=>x.i<i-2).at(-1);
+        if(low2 && p2.c<low2.p && p1.c<low2.p && b.c>low2.p){
+          out.push({
+            kind:'TRAP',type:'BULL',formed:b.t,formedIndex:i,
+            level:low2.p,extreme:Math.min(p2.l,p1.l,b.l),state:'RETURNED_INSIDE'
+          });
+        }
+      }
+    }
+    return out;
+  }
+
+  function structuresFor(tf){
+    const bars=cache[tf];
+    if(!bars) return null;
+    const sw=swings(bars,2), f=fvgs(bars), o=obCandidates(bars,sw,f);
+    const trend=trendCandidates(bars,sw);
+    const channel=channelCandidates(bars,sw);
+    const liquidity=liquidityLevels(bars,sw);
+    const fakeTrap=fakeTrapCandidates(bars,sw);
+    return {bars,sw,f,o,trend,channel,liquidity,fakeTrap};
+  }
+
+  function coordX(time){
+    const c=chart();
+    if(!c) return null;
+    return c.timeScale().timeToCoordinate(time);
+  }
+  function coordY(price){
+    const s=candleSeries();
+    if(!s) return null;
+    return s.priceToCoordinate(price);
+  }
+
+  function resize(){
+    const wrap=document.querySelector('.chart-wrap');
+    if(!wrap) return null;
+    const r=wrap.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+    overlay.width=Math.max(1,Math.round(r.width*dpr));
+    overlay.height=Math.max(1,Math.round(r.height*dpr));
+    overlay.style.width=r.width+'px';
+    overlay.style.height=r.height+'px';
+    const ctx=overlay.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {ctx,w:r.width,h:r.height};
+  }
+
+  function label(ctx,x,y,text,fill){
+    ctx.save();
+    ctx.font='10px system-ui,-apple-system,sans-serif';
+    const w=ctx.measureText(text).width+10;
+    const h=18;
+    ctx.globalAlpha=.92;
+    ctx.fillStyle=fill;
+    ctx.fillRect(x,y-h,w,h);
+    ctx.globalAlpha=1;
+    ctx.fillStyle='#f4f7fb';
+    ctx.fillText(text,x+5,y-5);
+    ctx.restore();
+  }
+
+  function drawZone(ctx,z,tf,w,isCurrent){
+    let x1=coordX(z.start);
+    const yTop=coordY(z.hi), yBottom=coordY(z.lo);
+    if(yTop==null || yBottom==null) return;
+
+    // If the zone began before the visible range, pin its left edge to chart edge.
+    if(x1==null || x1<0) x1=0;
+    if(x1>w) return;
+    const x2=w-72;
+    const top=Math.min(yTop,yBottom), bottom=Math.max(yTop,yBottom);
+    if(bottom<0 || top>overlay.clientHeight) return;
+
+    const alpha=isCurrent?.15:.08;
+    const bull=z.type==='BULL';
+    const isFvg=z.kind==='FVG';
+    const base=bull ? [31,208,154] : [255,93,115];
+
+    ctx.save();
+    ctx.fillStyle=`rgba(${base.join(',')},${alpha})`;
+    ctx.strokeStyle=`rgba(${base.join(',')},${isCurrent?.75:.48})`;
+    ctx.lineWidth=isCurrent?1.2:1;
+    if(!isCurrent || z.kind==='OB' || (isFvg && !z.qualified)) ctx.setLineDash([6,4]);
+    ctx.fillRect(x1,top,Math.max(0,x2-x1),Math.max(1,bottom-top));
+    ctx.strokeRect(x1,top,Math.max(0,x2-x1),Math.max(1,bottom-top));
+
+    const simpleLabel = z.kind==='OB'
+      ? `${TF_LABEL[tf]} OB`
+      : `${TF_LABEL[tf]} FVG`;
+    label(ctx,Math.max(2,x1+3),top,simpleLabel,
+      bull?'rgba(19,105,79,.96)':'rgba(133,45,59,.96)');
+    ctx.restore();
+  }
+
+  function drawSwing(ctx,s){
+    const x=coordX(s.t), y=coordY(s.p);
+    if(x==null || y==null || x<0 || x>overlay.clientWidth) return;
+    ctx.save();
+    ctx.fillStyle=s.type==='H'?'#f5a3b1':'#6fe1bc';
+    ctx.beginPath();
+    if(s.type==='H'){ ctx.moveTo(x,y+3);ctx.lineTo(x-4,y+10);ctx.lineTo(x+4,y+10); }
+    else { ctx.moveTo(x,y-3);ctx.lineTo(x-4,y-10);ctx.lineTo(x+4,y-10); }
+    ctx.closePath();ctx.fill();ctx.restore();
+  }
+
+
+  function drawTrend(ctx,t,tf,w){
+    const pts=t.points;
+    const a=pts[0], b=pts[pts.length-1];
+    let x1=coordX(a.t), x2=coordX(b.t);
+    let y1=coordY(a.p), y2=coordY(b.p);
+    if(x1==null || x2==null || y1==null || y2==null) return;
+
+    // Extend visually to the right using time/index slope approximation.
+    const tfSec = {'5':300,'15':900,'60':3600,'240':14400}[tf];
+    const lastTime = cache[tf]?.at(-1)?.t || b.t;
+    const barsAhead = Math.max(0,(lastTime-b.t)/tfSec);
+    const extPrice = b.p + t.slopePerIndex*barsAhead;
+    const extX = coordX(lastTime);
+    const extY = coordY(extPrice);
+
+    ctx.save();
+    ctx.strokeStyle=t.type==='UP'?'rgba(91,204,161,.9)':'rgba(236,123,145,.9)';
+    ctx.lineWidth=t.quality==='STRONG_CANDIDATE'?2:1.25;
+    ctx.setLineDash(t.quality==='STRONG_CANDIDATE'?[]:[5,4]);
+    ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(extX??x2,extY??y2);
+    ctx.stroke();
+    label(ctx,Math.max(2,x1+4),Math.max(20,y1),
+      `${TF_LABEL[tf]} Trend ${t.type} · ${t.quality}`,
+      t.type==='UP'?'rgba(25,111,82,.95)':'rgba(135,55,72,.95)');
+    ctx.restore();
+  }
+
+  function lineFromPair(pair, xIndex){
+    const a=pair[0], b=pair[1];
+    const m=(b.p-a.p)/(b.i-a.i);
+    return a.p + m*(xIndex-a.i);
+  }
+
+  function drawChannel(ctx,ch,tf,w){
+    const bars=cache[tf];
+    if(!bars) return;
+    const n=bars.length;
+    const pairs=[ch.main,ch.opp];
+    const color=ch.type==='UP'?'rgba(105,164,255,.85)':'rgba(210,139,255,.85)';
+    const fill=ch.type==='UP'?'rgba(105,164,255,.07)':'rgba(210,139,255,.07)';
+
+    const tStart=Math.min(ch.main[0].t,ch.opp[0].t);
+    const tEnd=bars.at(-1).t;
+    const x1=coordX(tStart), x2=coordX(tEnd);
+    if(x1==null || x2==null) return;
+
+    const idxStart=Math.min(ch.main[0].i,ch.opp[0].i);
+    const topStart=Math.max(lineFromPair(ch.main,idxStart),lineFromPair(ch.opp,idxStart));
+    const botStart=Math.min(lineFromPair(ch.main,idxStart),lineFromPair(ch.opp,idxStart));
+    const topEnd=Math.max(lineFromPair(ch.main,n-1),lineFromPair(ch.opp,n-1));
+    const botEnd=Math.min(lineFromPair(ch.main,n-1),lineFromPair(ch.opp,n-1));
+
+    const yt1=coordY(topStart), yb1=coordY(botStart), yt2=coordY(topEnd), yb2=coordY(botEnd);
+    if([yt1,yb1,yt2,yb2].some(v=>v==null)) return;
+
+    ctx.save();
+    ctx.fillStyle=fill;
+    ctx.beginPath();
+    ctx.moveTo(x1,yt1);ctx.lineTo(x2,yt2);ctx.lineTo(x2,yb2);ctx.lineTo(x1,yb1);ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle=color;
+    ctx.lineWidth=ch.quality==='STRONG_CANDIDATE'?1.8:1.1;
+    ctx.setLineDash(ch.quality==='STRONG_CANDIDATE'?[]:[6,4]);
+
+    ctx.beginPath();ctx.moveTo(x1,yt1);ctx.lineTo(x2,yt2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x1,yb1);ctx.lineTo(x2,yb2);ctx.stroke();
+
+    // Midline
+    ctx.globalAlpha=.55;
+    ctx.setLineDash([3,5]);
+    ctx.beginPath();
+    ctx.moveTo(x1,(yt1+yb1)/2);ctx.lineTo(x2,(yt2+yb2)/2);ctx.stroke();
+    ctx.globalAlpha=1;
+
+    label(ctx,Math.max(2,x1+4),Math.max(20,yt1),
+      `${TF_LABEL[tf]} Channel ${ch.type} · ${ch.quality}`,
+      ch.type==='UP'?'rgba(57,85,144,.96)':'rgba(109,63,143,.96)');
+    ctx.restore();
+  }
+
+
+  function drawLiquidity(ctx,liq,tf,w){
+    const y=coordY(liq.level);
+    let x=coordX(liq.t);
+    if(y==null) return;
+    if(x==null || x<0) x=0;
+    const x2=w-72;
+
+    ctx.save();
+    ctx.strokeStyle=liq.side==='BUY_SIDE'?'rgba(255,184,108,.65)':'rgba(112,205,255,.65)';
+    ctx.lineWidth=1;
+    ctx.setLineDash([2,5]);
+    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x2,y);ctx.stroke();
+    label(ctx,Math.max(2,x+3),Math.max(18,y),
+      `${TF_LABEL[tf]} ${liq.side==='BUY_SIDE'?'Buy Liq':'Sell Liq'}`,
+      liq.side==='BUY_SIDE'?'rgba(126,84,39,.94)':'rgba(39,94,126,.94)');
+    ctx.restore();
+  }
+
+  function drawFakeTrap(ctx,e,tf){
+    const x=coordX(e.formed), y=coordY(e.level);
+    if(x==null || y==null) return;
+    const bull=e.type==='BULL';
+    ctx.save();
+    ctx.fillStyle=bull?'#42ddb0':'#ff7990';
+    ctx.beginPath();
+    if(bull){
+      ctx.moveTo(x,y-3);ctx.lineTo(x-6,y-14);ctx.lineTo(x+6,y-14);
+    }else{
+      ctx.moveTo(x,y+3);ctx.lineTo(x-6,y+14);ctx.lineTo(x+6,y+14);
+    }
+    ctx.closePath();ctx.fill();
+    label(ctx,x+7,bull?y-4:y+22,
+      `${TF_LABEL[tf]} ${e.kind==='FAKEOUT'?'Fake out':'Trap'}`,
+      bull?'rgba(22,112,82,.96)':'rgba(137,48,67,.96)');
+    ctx.restore();
+  }
+
+  function draw(){
+    redrawScheduled=false;
+    const canvas=resize();
+    if(!canvas) return;
+    const {ctx,w,h}=canvas;
+    ctx.clearRect(0,0,w,h);
+
+    const cur=activeTf(), tfs=neededTfs();
+    const current=structuresFor(cur);
+    if(!current) return;
+
+    // Higher timeframe structures first, current timeframe on top.
+    // FVG / OB: only structures formed within each timeframe's latest 30 candles.
+    for(const tf of [...tfs].reverse()){
+      const st=structuresFor(tf);
+      if(!st) continue;
+      const isCurrent=tf===cur;
+
+      if(toggleFvg.checked && structureEnabled(tf,'fvg')){
+        const active=st.f
+          .filter(z=>z.state!=='FILLED' && formedWithinLast30(z,st.bars))
+          .slice(-20);
+        for(const z of active) drawZone(ctx,z,tf,w,isCurrent);
+      }
+
+      if(toggleOb.checked && structureEnabled(tf,'ob')){
+        const activeOb=st.o
+          .filter(z=>formedWithinLast30(z,st.bars))
+          .slice(-30);
+        for(const z of activeOb) drawZone(ctx,z,tf,w,isCurrent);
+      }
+
+      if(toggleTrend.checked && structureEnabled(tf,'trend')){
+        for(const t of st.trend) drawTrend(ctx,t,tf,w);
+      }
+
+      if(toggleChannel.checked && structureEnabled(tf,'channel')){
+        for(const ch of st.channel) drawChannel(ctx,ch,tf,w);
+      }
+
+      if(toggleLiquidity.checked && structureEnabled(tf,'liquidity')){
+        for(const liq of st.liquidity) drawLiquidity(ctx,liq,tf,w);
+      }
+
+      if(toggleFakeout.checked && structureEnabled(tf,'faketrap')){
+        for(const e of st.fakeTrap.filter(e=>formedWithinLast30(e,st.bars))){
+          drawFakeTrap(ctx,e,tf);
+        }
+      }
+    }
+
+    // Swing marks remain visually useful on the selected timeframe only,
+    // but can still be toggled per timeframe in the matrix.
+    if(toggleSwing.checked && structureEnabled(cur,'swing')){
+      const start=Math.max(0,current.bars.length-RECENT_CANDLE_LIMIT);
+      const pts=[...current.sw.highs,...current.sw.lows]
+        .filter(s=>s.i>=start)
+        .sort((a,b)=>a.t-b.t).slice(-80);
+      for(const s of pts) drawSwing(ctx,s);
+    }
+
+    const last=current.bars.at(-1);
+    const sh=current.sw.highs.at(-1), sl=current.sw.lows.at(-1);
+    swingSummary.textContent=sh&&sl ? `H ${fmt(sh.p)} / L ${fmt(sl.p)}` : '탐지 없음';
+
+    const cf=[...current.f].reverse().find(z=>z.state!=='FILLED' && formedWithinLast30(z,current.bars));
+    fvgSummary.textContent=cf ? `${cf.type} · ${cf.qualified?'QUALIFIED':'CANDIDATE'} · ${cf.state}` : '활성 없음';
+
+    const co=[...current.o].reverse().find(z=>formedWithinLast30(z,current.bars));
+    obSummary.textContent=co ? `${co.type} · ×${(co.expansionRatio||0).toFixed(1)} · ${co.confidence||'BASIC'} · ${co.state}` : '후보 없음';
+
+    const ct=current.trend.at(-1);
+    trendSummary.textContent=ct ? `${ct.type} · ${ct.quality}` : '후보 없음';
+
+    const cc=current.channel.at(-1);
+    channelSummary.textContent=cc ? `${cc.type} · ${cc.quality}` : '후보 없음';
+
+    liquiditySummary.textContent=current.liquidity.length
+      ? `${current.liquidity.filter(x=>x.side==='BUY_SIDE').length} Buy / ${current.liquidity.filter(x=>x.side==='SELL_SIDE').length} Sell`
+      : '없음';
+
+    const lastEvent=current.fakeTrap.at(-1);
+    fakeoutSummary.textContent=lastEvent
+      ? `${lastEvent.type} ${lastEvent.kind==='FAKEOUT'?'FAKE OUT':'TRAP'}`
+      : '없음';
+
+    const overlaps=[];
+    for(const tf of tfs){
+      if(tf===cur) continue;
+      const st=structuresFor(tf);
+      if(!st || !last) continue;
+
+      if(structureEnabled(tf,'fvg')){
+        for(const z of st.f.filter(z=>z.state!=='FILLED' && formedWithinLast30(z,st.bars))){
+          if(last.c>=z.lo && last.c<=z.hi) overlaps.push(`${TF_LABEL[tf]} FVG`);
+        }
+      }
+
+      if(structureEnabled(tf,'ob')){
+        for(const z of st.o.filter(z=>formedWithinLast30(z,st.bars))){
+          if(last.c>=z.lo && last.c<=z.hi) overlaps.push(`${TF_LABEL[tf]} OB`);
+        }
+      }
+    }
+    htfSummary.textContent=overlaps.length ? overlaps.slice(0,3).join(' + ') : '현재가 중첩 없음';
+  }
+
+  function fmt(v){
+    if(v>=1000)return v.toLocaleString(undefined,{maximumFractionDigits:1});
+    if(v>=1)return v.toLocaleString(undefined,{maximumFractionDigits:4});
+    return v.toFixed(6);
+  }
+
+  function scheduleDraw(){
+    if(redrawScheduled) return;
+    redrawScheduled=true;
+    requestAnimationFrame(draw);
+  }
+
+  // Critical fix: redraw overlays whenever TradingView's visible range changes.
+  function attachChartSync(){
+    if(!chart() || !candleSeries()) return setTimeout(attachChartSync,100);
+    chart().timeScale().subscribeVisibleLogicalRangeChange(scheduleDraw);
+    chart().subscribeCrosshairMove(scheduleDraw);
+    new ResizeObserver(scheduleDraw).observe(document.querySelector('.chart-wrap'));
+    scheduleDraw();
+  }
+
+  document.getElementById('symbol').addEventListener('change',()=>setTimeout(reloadStructureData,250));
+  document.getElementById('tfGroup').addEventListener('click',()=>setTimeout(reloadStructureData,250));
+  [toggleSwing,toggleFvg,toggleOb,toggleTrend,toggleChannel,toggleLiquidity,toggleFakeout]
+    .forEach(x=>x && x.addEventListener('change',scheduleDraw));
+
+  buildOverlayMatrix();
+
+  if(toggleAllOverlays){
+    toggleAllOverlays.addEventListener('click',()=>{
+      const boxes=[...document.querySelectorAll('.overlay-matrix input[type="checkbox"]')];
+      const next=!boxes.every(x=>x.checked);
+      boxes.forEach(x=>x.checked=next);
+      scheduleDraw();
+    });
+  }
+
+  // live structural refresh; display position stays synced continuously by chart subscriptions
+  setInterval(reloadStructureData,15000);
+  setTimeout(reloadStructureData,500);
+  attachChartSync();
+})();
+</script>
+</body>
+</html>
