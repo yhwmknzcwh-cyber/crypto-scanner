@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EasyAlNam Market Monitor — S1</title>
+  <style>
+:root{
+  color-scheme:dark;
+  --bg:#0a0d12;
+  --panel:#111720;
+  --panel-2:#151d28;
+  --border:#263241;
+  --text:#ecf1f7;
+  --muted:#8492a6;
+  --green:#1fd09a;
+  --red:#ff5d73;
+  --accent:#78a9ff;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{display:flex;flex-direction:column}
+.topbar{
+  min-height:76px;display:grid;grid-template-columns:minmax(250px,1fr) auto minmax(180px,1fr);
+  align-items:center;gap:20px;padding:12px 20px;border-bottom:1px solid var(--border);background:#0d1219
+}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;display:grid;place-items:center;border-radius:10px;background:var(--accent);color:#08111f;font-weight:900}
+.brand h1{font-size:16px;margin:0 0 3px}
+.brand p{margin:0;color:var(--muted);font-size:12px}
+.controls{display:flex;align-items:end;gap:14px}
+.controls label{display:flex;flex-direction:column;gap:5px}
+.controls label span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+select,button{
+  border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:8px;
+  min-height:34px;padding:0 11px;font-weight:650
+}
+button{cursor:pointer}
+button:hover{border-color:#41536a}
+button.active{background:#203657;border-color:#4777b9;color:#fff}
+.tf-group{display:flex;gap:5px}
+.market-status{justify-self:end;display:flex;align-items:center;gap:10px}
+.live-dot{width:9px;height:9px;border-radius:50%;background:#5b6470;box-shadow:0 0 0 4px #5b64701a}
+.live-dot.live{background:var(--green);box-shadow:0 0 0 4px #1fd09a1c}
+.live-dot.error{background:var(--red);box-shadow:0 0 0 4px #ff5d731c}
+#connectionText{font-size:11px;color:var(--muted);text-align:right}
+.price{font-size:20px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+.workspace{
+  flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px;padding:12px
+}
+.chart-card,.side-panel{min-height:0}
+.chart-card{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.chart-head{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid var(--border)}
+.chart-head strong{font-size:14px}
+.chart-head #candleState{font-size:11px;color:var(--muted);margin-left:9px}
+.legend{display:flex;gap:7px;color:var(--muted);font-size:11px}
+#chart{flex:1;min-height:500px}
+.chart-error{position:absolute;inset:70px 20px auto 20px;padding:12px;border:1px solid #703443;background:#351821;color:#ffd7df;border-radius:8px;z-index:5}
+.hidden{display:none}
+.side-panel{display:flex;flex-direction:column;gap:12px;overflow:auto}
+.panel-block{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
+.panel-block h2{font-size:13px;margin:0 0 12px}
+.panel-title{display:flex;align-items:center;justify-content:space-between}
+.stage-badge{font-size:10px;background:#203657;padding:3px 7px;border-radius:999px;color:#bcd7ff}
+.empty-state{padding:18px 12px;background:#0d131b;border:1px dashed #334256;border-radius:9px}
+.empty-state strong{font-size:12px}
+.empty-state p{font-size:11px;color:var(--muted);line-height:1.5;margin:6px 0 0}
+.tf-status-list{display:flex;flex-direction:column;gap:8px}
+.tf-status-list div{display:flex;justify-content:space-between;padding:8px 10px;background:#0d131b;border-radius:7px}
+.tf-status-list span{font-size:11px;color:var(--muted)}
+.tf-status-list strong{font-size:10px;color:var(--green)}
+.roadmap{padding-left:20px;margin:0;color:var(--muted);font-size:11px;line-height:1.9}
+.roadmap .done{color:var(--green);font-weight:700}
+footer{padding:8px 16px;border-top:1px solid var(--border);color:#657287;font-size:10px;background:#0d1219}
+@media(max-width:900px){
+  .topbar{grid-template-columns:1fr;gap:10px}
+  .controls{justify-content:space-between}
+  .market-status{justify-self:start}
+  .workspace{grid-template-columns:1fr}
+  .side-panel{display:grid;grid-template-columns:1fr 1fr}
+  .side-panel .panel-block:first-child{grid-column:1/-1}
+  #chart{min-height:460px}
+}
+@media(max-width:560px){
+  .topbar{padding:10px}
+  .controls{align-items:stretch;flex-direction:column}
+  .tf-group{display:grid;grid-template-columns:repeat(4,1fr)}
+  .workspace{padding:6px}
+  .side-panel{display:flex}
+  .legend{display:none}
+}
+
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">EA</div>
+      <div>
+        <h1>EasyAlNam Market Monitor</h1>
+        <p>S1 · Bybit 실시간 차트</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label>
+        <span>Symbol</span>
+        <select id="symbol">
+          <option>BTCUSDT</option>
+          <option>ETHUSDT</option>
+          <option>XRPUSDT</option>
+          <option>SOLUSDT</option>
+        </select>
+      </label>
+
+      <div class="tf-group" id="tfGroup" aria-label="Timeframe">
+        <button data-tf="240">4H</button>
+        <button data-tf="60">1H</button>
+        <button class="active" data-tf="15">15M</button>
+        <button data-tf="5">5M</button>
+      </div>
+    </div>
+
+    <div class="market-status">
+      <div id="liveDot" class="live-dot"></div>
+      <div>
+        <div id="connectionText">연결 준비</div>
+        <div id="priceText" class="price">—</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="chart-card">
+      <div class="chart-head">
+        <div>
+          <strong id="chartTitle">BTCUSDT · 15M</strong>
+          <span id="candleState">—</span>
+        </div>
+        <div class="legend">
+          <span>Bybit Linear Perpetual</span>
+          <span>·</span>
+          <span id="lastUpdate">—</span>
+        </div>
+      </div>
+      <div id="chart"></div>
+      <div id="chartError" class="chart-error hidden"></div>
+    </section>
+
+    <aside class="side-panel">
+      <section class="panel-block">
+        <div class="panel-title">
+          <h2>현재 구조</h2>
+          <span class="stage-badge">S1</span>
+        </div>
+        <div class="empty-state">
+          <strong>구조 엔진 준비 전</strong>
+          <p>S2부터 OB · FVG를 이 영역과 차트 위에 표시합니다.</p>
+        </div>
+      </section>
+
+      <section class="panel-block">
+        <h2>멀티 타임프레임</h2>
+        <div class="tf-status-list">
+          <div><span>4H</span><strong>DATA READY</strong></div>
+          <div><span>1H</span><strong>DATA READY</strong></div>
+          <div><span>15M</span><strong>DATA READY</strong></div>
+          <div><span>5M</span><strong>DATA READY</strong></div>
+        </div>
+      </section>
+
+      <section class="panel-block">
+        <h2>다음 개발</h2>
+        <ol class="roadmap">
+          <li class="done">S1 · 실시간 차트</li>
+          <li>S2 · Swing / OB / FVG</li>
+          <li>S3 · Trend Line / Channel</li>
+          <li>S4 · Liquidity / Fake out / Trap</li>
+          <li>S5 · State / Multi-TF</li>
+          <li>S6 · Overlay / Alert</li>
+        </ol>
+      </section>
+    </aside>
+  </main>
+
+  <footer>
+    구조 판단은 EasyAlNam 81장 강의 Authority를 기준으로 후속 Stage에서 추가됩니다.
+  </footer>
+
+  <script src="https://unpkg.com/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
+  <script>
+(() => {
+  const REST = 'https://api.bybit.com/v5/market/kline';
+  const WS = 'wss://stream.bybit.com/v5/public/linear';
+
+  const TF_LABEL = {
+    '240': '4H',
+    '60': '1H',
+    '15': '15M',
+    '5': '5M',
+  };
+
+  const symbolEl = document.getElementById('symbol');
+  const tfGroup = document.getElementById('tfGroup');
+  const chartTitle = document.getElementById('chartTitle');
+  const liveDot = document.getElementById('liveDot');
+  const connectionText = document.getElementById('connectionText');
+  const priceText = document.getElementById('priceText');
+  const candleState = document.getElementById('candleState');
+  const lastUpdate = document.getElementById('lastUpdate');
+  const errorBox = document.getElementById('chartError');
+
+  let selectedTf = '15';
+  let ws = null;
+  let heartbeat = null;
+  let reconnectTimer = null;
+  let generation = 0;
+
+  const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+    autoSize: true,
+    layout: {
+      background: { type: LightweightCharts.ColorType.Solid, color: '#111720' },
+      textColor: '#91a0b5',
+      attributionLogo: true,
+    },
+    grid: {
+      vertLines: { color: '#1d2733' },
+      horzLines: { color: '#1d2733' },
+    },
+    rightPriceScale: {
+      borderColor: '#2a3747',
+      scaleMargins: { top: 0.08, bottom: 0.08 },
+    },
+    timeScale: {
+      borderColor: '#2a3747',
+      timeVisible: true,
+      secondsVisible: false,
+      rightOffset: 8,
+    },
+    crosshair: {
+      mode: LightweightCharts.CrosshairMode.Normal,
+    },
+  });
+
+  const candles = chart.addSeries(LightweightCharts.CandlestickSeries, {
+    upColor: '#22c596',
+    downColor: '#f05d72',
+    wickUpColor: '#22c596',
+    wickDownColor: '#f05d72',
+    borderVisible: false,
+    priceLineVisible: true,
+    lastValueVisible: true,
+  });
+
+  const volume = chart.addSeries(LightweightCharts.HistogramSeries, {
+    priceFormat: { type: 'volume' },
+    priceScaleId: '',
+    lastValueVisible: false,
+    priceLineVisible: false,
+  });
+  volume.priceScale().applyOptions({
+    scaleMargins: { top: 0.82, bottom: 0 },
+  });
+
+  function setError(message = '') {
+    if (!message) {
+      errorBox.textContent = '';
+      errorBox.classList.add('hidden');
+      return;
+    }
+    errorBox.textContent = message;
+    errorBox.classList.remove('hidden');
+  }
+
+  function setConnection(state, text) {
+    liveDot.classList.remove('live', 'error');
+    if (state === 'live') liveDot.classList.add('live');
+    if (state === 'error') liveDot.classList.add('error');
+    connectionText.textContent = text;
+  }
+
+  function fmtPrice(value) {
+    if (!Number.isFinite(value)) return '—';
+    if (value >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    if (value >= 1) return value.toLocaleString(undefined, { maximumFractionDigits: 4 });
+    return value.toLocaleString(undefined, { maximumFractionDigits: 6 });
+  }
+
+  function toChartBar(row) {
+    return {
+      time: Math.floor(Number(row[0]) / 1000),
+      open: Number(row[1]),
+      high: Number(row[2]),
+      low: Number(row[3]),
+      close: Number(row[4]),
+    };
+  }
+
+  function toVolumeBar(row) {
+    const open = Number(row[1]);
+    const close = Number(row[4]);
+    return {
+      time: Math.floor(Number(row[0]) / 1000),
+      value: Number(row[5]),
+      color: close >= open ? 'rgba(34,197,150,.30)' : 'rgba(240,93,114,.30)',
+    };
+  }
+
+  async function loadHistory(myGeneration) {
+    const symbol = symbolEl.value;
+    const params = new URLSearchParams({
+      category: 'linear',
+      symbol,
+      interval: selectedTf,
+      limit: '500',
+    });
+
+    setConnection('idle', '과거 데이터 로딩');
+    setError('');
+
+    const res = await fetch(`${REST}?${params.toString()}`);
+    if (!res.ok) throw new Error(`Bybit REST HTTP ${res.status}`);
+    const body = await res.json();
+    if (body.retCode !== 0) throw new Error(body.retMsg || 'Bybit REST 오류');
+    if (myGeneration !== generation) return;
+
+    const rows = [...body.result.list].reverse();
+    const chartData = rows.map(toChartBar);
+    const volumeData = rows.map(toVolumeBar);
+
+    candles.setData(chartData);
+    volume.setData(volumeData);
+    chart.timeScale().fitContent();
+
+    const latest = chartData.at(-1);
+    if (latest) {
+      priceText.textContent = fmtPrice(latest.close);
+      lastUpdate.textContent = new Date().toLocaleTimeString();
+    }
+  }
+
+  function cleanupWs() {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+      heartbeat = null;
+    }
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    if (ws) {
+      ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
+      try { ws.close(); } catch (_) {}
+      ws = null;
+    }
+  }
+
+  function connectWs(myGeneration) {
+    cleanupWs();
+    const symbol = symbolEl.value;
+    const topic = `kline.${selectedTf}.${symbol}`;
+
+    setConnection('idle', '실시간 연결 중');
+
+    ws = new WebSocket(WS);
+
+    ws.onopen = () => {
+      if (myGeneration !== generation) return;
+      ws.send(JSON.stringify({
+        op: 'subscribe',
+        args: [topic],
+      }));
+
+      heartbeat = setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ op: 'ping' }));
+        }
+      }, 20000);
+
+      setConnection('live', 'LIVE · Bybit');
+    };
+
+    ws.onmessage = (event) => {
+      if (myGeneration !== generation) return;
+      const msg = JSON.parse(event.data);
+      if (msg.topic !== topic || !Array.isArray(msg.data) || !msg.data.length) return;
+
+      const k = msg.data[0];
+      const bar = {
+        time: Math.floor(Number(k.start) / 1000),
+        open: Number(k.open),
+        high: Number(k.high),
+        low: Number(k.low),
+        close: Number(k.close),
+      };
+
+      candles.update(bar);
+      volume.update({
+        time: bar.time,
+        value: Number(k.volume),
+        color: bar.close >= bar.open ? 'rgba(34,197,150,.30)' : 'rgba(240,93,114,.30)',
+      });
+
+      priceText.textContent = fmtPrice(bar.close);
+      candleState.textContent = k.confirm ? 'CLOSED' : 'LIVE CANDLE';
+      lastUpdate.textContent = new Date(Number(k.timestamp || Date.now())).toLocaleTimeString();
+    };
+
+    ws.onerror = () => {
+      if (myGeneration !== generation) return;
+      setConnection('error', 'WebSocket 오류');
+    };
+
+    ws.onclose = () => {
+      if (myGeneration !== generation) return;
+      if (heartbeat) {
+        clearInterval(heartbeat);
+        heartbeat = null;
+      }
+      setConnection('error', '재연결 대기');
+      reconnectTimer = setTimeout(() => connectWs(myGeneration), 2500);
+    };
+  }
+
+  async function reload() {
+    generation += 1;
+    const myGeneration = generation;
+    cleanupWs();
+
+    chartTitle.textContent = `${symbolEl.value} · ${TF_LABEL[selectedTf]}`;
+    candleState.textContent = '—';
+
+    try {
+      await loadHistory(myGeneration);
+      if (myGeneration !== generation) return;
+      connectWs(myGeneration);
+    } catch (err) {
+      console.error(err);
+      if (myGeneration !== generation) return;
+      setConnection('error', '데이터 연결 실패');
+      setError(
+        `시장 데이터를 불러오지 못했습니다: ${err.message}. ` +
+        `네트워크 또는 Bybit 접속 제한을 확인한 뒤 새로고침해 주세요.`
+      );
+    }
+  }
+
+  symbolEl.addEventListener('change', reload);
+
+  tfGroup.addEventListener('click', (e) => {
+    const button = e.target.closest('button[data-tf]');
+    if (!button || button.dataset.tf === selectedTf) return;
+    selectedTf = button.dataset.tf;
+    [...tfGroup.querySelectorAll('button')].forEach((b) => {
+      b.classList.toggle('active', b === button);
+    });
+    reload();
+  });
+
+  window.addEventListener('beforeunload', cleanupWs);
+  reload();
+})();
+
+</script>
+</body>
+</html>
