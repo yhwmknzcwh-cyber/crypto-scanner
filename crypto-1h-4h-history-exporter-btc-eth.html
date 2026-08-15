@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BTC+ETH 1H+4H Historical Data Exporter</title>
+<style>
+:root{color-scheme:dark;--bg:#090d13;--p:#111823;--b:#263446;--t:#eef3f8;--m:#8f9caf;--a:#78aaff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:15px 16px;border-bottom:1px solid var(--b);background:#0d131b}h1{font-size:17px;margin:0}header p{font-size:10px;color:var(--m);margin:4px 0 0}
+main{padding:12px;display:grid;gap:12px}.card{background:var(--p);border:1px solid var(--b);border-radius:11px;padding:12px}
+.controls{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.ctl{display:flex;flex-direction:column;gap:4px}.ctl span{font-size:9px;color:var(--m)}
+select,button{width:100%;min-height:40px;border:1px solid var(--b);border-radius:8px;background:#151e2a;color:var(--t);padding:0 9px}
+button{font-weight:750}.primary{background:#244e7d;border-color:#4b80bb}.primary:disabled{opacity:.45}
+.status{font-size:11px;color:var(--m);line-height:1.6}.status strong{color:var(--t)}
+.progress{height:7px;background:#171f2a;border-radius:99px;overflow:hidden;margin-top:8px}.progress div{height:100%;width:0;background:var(--a);transition:width .15s}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.stat{background:#0d131c;border:1px solid #1e2a38;border-radius:8px;padding:9px}.stat span{display:block;font-size:9px;color:var(--m)}.stat b{font-size:13px}
+.note{font-size:10px;line-height:1.65;color:var(--m)}.log{background:#080c12;border-radius:7px;padding:8px;max-height:190px;overflow:auto;white-space:pre-wrap;font:9px ui-monospace,monospace;color:#91a1b4}
+@media(max-width:650px){.controls{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header>
+<h1>BTC + ETH 1시간봉 / 4시간봉 장기 데이터 수집기</h1>
+<p>iPad Safari용 · 두 종목 × 두 시간봉을 한 번에 수집해 하나의 JSON/CSV로 저장</p>
+</header>
+
+<main>
+<section class="card">
+<div class="controls">
+<label class="ctl"><span>기간</span><select id="days">
+<option value="180">180일</option>
+<option value="365" selected>365일</option>
+<option value="730">730일</option>
+<option value="1095">1095일</option>
+</select></label>
+<button class="primary" id="collect">BTC + ETH · 1H + 4H 동시 수집</button>
+<button id="saveJson" disabled>통합 JSON 저장</button>
+<button id="saveCsv" disabled>통합 CSV 저장</button>
+</div>
+</section>
+
+<section class="card">
+<div id="status" class="status"><strong>준비.</strong> BTCUSDT와 ETHUSDT의 1시간봉·4시간봉을 연속으로 수집합니다.</div>
+<div class="progress"><div id="bar"></div></div>
+</section>
+
+<section class="stats">
+<div class="stat"><span>BTC 1H</span><b id="btc1h">0</b></div>
+<div class="stat"><span>ETH 1H</span><b id="eth1h">0</b></div>
+<div class="stat"><span>BTC 4H</span><b id="btc4h">0</b></div>
+<div class="stat"><span>ETH 4H</span><b id="eth4h">0</b></div>
+</section>
+
+<section class="card note">
+<b>저장 구조</b><br>
+CSV: <code>symbol,interval,time,open,high,low,close,volume,turnover</code><br>
+JSON: <code>BTCUSDT → 1h/4h</code>, <code>ETHUSDT → 1h/4h</code> 배열로 분리 저장합니다.<br><br>
+이후 4시간봉 → 1시간봉 → 15분봉 → 5분봉 구조 겹침을 같은 기준으로 비교할 수 있습니다.
+</section>
+
+<section class="card"><div id="log" class="log">LOG</div></section>
+</main>
+
+<script>
+const API='https://api.bybit.com/v5/market/kline';
+const SYMBOLS=['BTCUSDT','ETHUSDT'];
+const TFS=[{label:'1h',api:'60',ms:3600000},{label:'4h',api:'240',ms:14400000}];
+let DATA={BTCUSDT:{'1h':[],'4h':[]},ETHUSDT:{'1h':[],'4h':[]}};
+const $=id=>document.getElementById(id),bar=$('bar'),logEl=$('log');
+
+function log(s){logEl.textContent+='\n'+new Date().toLocaleTimeString()+' '+s;logEl.scrollTop=logEl.scrollHeight}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000)}
+function gapCount(arr,ms){let g=0;for(let i=1;i<arr.length;i++)if(arr[i].time-arr[i-1].time!==ms)g++;return g}
+
+async function fetchSymbolTF(sym,tf,days,progressBase,progressSpan){
+  const barsPerDay=tf.label==='1h'?24:6;
+  const target=days*barsPerDay+20;
+  const loops=Math.ceil(target/1000);
+  let end=Date.now(),all=[];
+  for(let n=0;n<loops;n++){
+    const q=new URLSearchParams({category:'linear',symbol:sym,interval:tf.api,limit:'1000',end:String(end)});
+    const r=await fetch(API+'?'+q);
+    if(!r.ok)throw Error(sym+' '+tf.label+' HTTP '+r.status);
+    const j=await r.json();
+    if(j.retCode!==0)throw Error(sym+' '+tf.label+' '+j.retMsg);
+    const rows=j.result.list;
+    if(!rows.length)break;
+    all.push(...rows);
+    end=Math.min(...rows.map(x=>+x[0]))-1;
+    bar.style.width=(progressBase+progressSpan*(n+1)/loops)+'%';
+    log(`${sym} ${tf.label} page ${n+1}/${loops} · 누적 ${all.length.toLocaleString()}`);
+    await sleep(25);
+  }
+  const m=new Map();
+  for(const x of all)m.set(+x[0],{
+    time:+x[0],open:+x[1],high:+x[2],low:+x[3],close:+x[4],volume:+x[5],turnover:+x[6]
+  });
+  const cutoff=Date.now()-days*86400000;
+  return [...m.values()].sort((a,b)=>a.time-b.time).filter(x=>x.time>=cutoff);
+}
+
+async function collect(){
+  const btn=$('collect'),days=+$('days').value;
+  btn.disabled=true;$('saveJson').disabled=true;$('saveCsv').disabled=true;
+  DATA={BTCUSDT:{'1h':[],'4h':[]},ETHUSDT:{'1h':[],'4h':[]}};
+  logEl.textContent='LOG';bar.style.width='0%';
+
+  try{
+    const jobs=[
+      ['BTCUSDT',TFS[0],'btc1h'],
+      ['ETHUSDT',TFS[0],'eth1h'],
+      ['BTCUSDT',TFS[1],'btc4h'],
+      ['ETHUSDT',TFS[1],'eth4h']
+    ];
+    for(let i=0;i<jobs.length;i++){
+      const [sym,tf,statId]=jobs[i];
+      $('status').innerHTML=`<strong>${i+1}/4 ${sym} ${tf.label}</strong> ${days}일 수집 중…`;
+      const arr=await fetchSymbolTF(sym,tf,days,i*25,25);
+      DATA[sym][tf.label]=arr;
+      $(statId).textContent=arr.length.toLocaleString();
+      const gaps=gapCount(arr,tf.ms);
+      log(`${sym} ${tf.label} 완료 · ${arr.length.toLocaleString()}봉 · gap ${gaps}`);
+    }
+    $('status').innerHTML=`<strong>수집 완료.</strong> BTC/ETH 1H·4H 전체 수집 완료. 통합 CSV 또는 JSON으로 저장하세요.`;
+    $('saveJson').disabled=false;$('saveCsv').disabled=false;bar.style.width='100%';
+  }catch(e){
+    console.error(e);
+    $('status').innerHTML=`<strong style="color:#ff687d">실패:</strong> ${e.message}`;
+    log('ERROR '+e.message);
+  }finally{btn.disabled=false}
+}
+
+function saveJSON(){
+  const days=$('days').value;
+  const payload={
+    schema:'crypto_multi_symbol_multi_tf_ohlcv_v1',
+    intervals:['1h','4h'],
+    source:'Bybit V5 kline',
+    exported_at:new Date().toISOString(),
+    period_days:+days,
+    symbols:DATA
+  };
+  download(new Blob([JSON.stringify(payload)],{type:'application/json'}),`BTC_ETH_1h_4h_${days}d.json`);
+}
+
+function saveCSV(){
+  const days=$('days').value;
+  const lines=['symbol,interval,time,open,high,low,close,volume,turnover'];
+  for(const sym of SYMBOLS){
+    for(const tf of ['1h','4h']){
+      for(const x of DATA[sym][tf]){
+        lines.push([sym,tf,new Date(x.time).toISOString(),x.open,x.high,x.low,x.close,x.volume,x.turnover].join(','));
+      }
+    }
+  }
+  download(new Blob([lines.join('\n')],{type:'text/csv'}),`BTC_ETH_1h_4h_${days}d.csv`);
+}
+
+$('collect').onclick=collect;
+$('saveJson').onclick=saveJSON;
+$('saveCsv').onclick=saveCSV;
+</script>
+</body>
+</html>
