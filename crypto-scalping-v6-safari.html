@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Crypto Scalping V6 Safari</title>
+<style>
+:root{color-scheme:dark;--bg:#090d13;--p:#111823;--p2:#0d131c;--b:#263446;--t:#edf3f9;--m:#8d9caf;--g:#25d3a2;--r:#ff667b;--a:#76aaff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:14px 16px;background:#0c121a;border-bottom:1px solid var(--b)}h1{font-size:17px;margin:0}header p{font-size:10px;color:var(--m);margin:4px 0 0}
+main{padding:12px;display:grid;gap:12px}.card{background:var(--p);border:1px solid var(--b);border-radius:11px;padding:12px}
+.controls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.ctl{display:flex;flex-direction:column;gap:4px}.ctl span{font-size:9px;color:var(--m)}
+select,input,button{width:100%;background:#151e2a;border:1px solid var(--b);color:var(--t);border-radius:7px;min-height:38px;padding:0 8px}
+button{font-weight:700}.primary{background:#244e7d;border-color:#4a80ba}.primary:disabled{opacity:.45}
+.strats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.s{background:var(--p2);border:1px solid #1f2b39;border-radius:8px;padding:10px}.s b{font-size:11px}.s p{font-size:9px;color:var(--m);line-height:1.5;margin:5px 0 0}
+.status{font-size:11px;color:var(--m);line-height:1.6}.status strong{color:var(--t)}.progress{height:6px;background:#171f2a;border-radius:99px;overflow:hidden;margin-top:7px}.progress div{height:100%;width:0;background:var(--a)}
+.tablewrap{overflow:auto;-webkit-overflow-scrolling:touch}table{width:100%;border-collapse:collapse;min-width:1000px;font-size:10px}th,td{padding:8px 6px;border-bottom:1px solid #1e2a38;text-align:right}th:first-child,td:first-child{text-align:left}th{font-size:9px;color:#9eacbd}.good{color:var(--g)}.bad{color:var(--r)}.pass{background:#12231f}.fail{opacity:.72}
+.note{font-size:10px;line-height:1.6;color:var(--m)}.log{font:9px ui-monospace,monospace;white-space:pre-wrap;max-height:140px;overflow:auto;background:#080c12;padding:8px;border-radius:7px;color:#91a1b4}
+@media(max-width:850px){.controls{grid-template-columns:1fr 1fr}.strats{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.strats{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>Crypto 5M Scalping Research V6</h1><p>iPad Safari · BTCUSDT / ETHUSDT · Train → OOS · 승률 55% 하드 게이트</p></header>
+<main>
+<section class="card">
+<div class="controls">
+<label class="ctl"><span>기간</span><select id="days"><option value="14">14일</option><option value="30" selected>30일</option><option value="60">60일</option></select></label>
+<label class="ctl"><span>OOS</span><select id="oos"><option value=".25">25%</option><option value=".30" selected>30%</option><option value=".35">35%</option></select></label>
+<label class="ctl"><span>최소 승률</span><input id="minWin" value="55" type="number"></label>
+<label class="ctl"><span>최소 OOS 거래</span><input id="minTrades" value="60" type="number"></label>
+<label class="ctl"><span>Taker %/side</span><input id="taker" value=".055" type="number" step=".005"></label>
+<label class="ctl"><span>Maker %/side</span><input id="maker" value=".020" type="number" step=".005"></label>
+<label class="ctl"><span>Slippage %/side</span><input id="slip" value=".015" type="number" step=".005"></label>
+<button class="primary" id="run">V6 백테스트 실행</button>
+</div>
+</section>
+
+<section class="strats">
+<div class="s"><b>1 · MTF Confirmation</b><p>5M + 완성된 15M의 EMA9/20, MACD, RSI, 거래량, 종가 강도 동시 확인.</p></div>
+<div class="s"><b>2 · Volume Profile</b><p>전일 50-bin Profile, 70% Value Area, VAH/VAL 반응. Tape Speed는 V6 명시적 operationalization.</p></div>
+<div class="s"><b>3 · Intraday Momentum</b><p>5분 수익률 Momentum/Reversal을 둘 다 탐색. 거래량과 jump regime 필터.</p></div>
+<div class="s"><b>4 · Order Flow</b><p>Safari 단일 HTML에서는 과거 tick archive를 안정적으로 직접 읽을 수 없어 가짜 OHLCV OFI로 대체하지 않음. UNAVAILABLE로 표시.</p></div>
+</section>
+
+<section class="card"><div id="status" class="status"><strong>준비.</strong> 실행 버튼을 누르면 Bybit 5분봉을 직접 받아 계산합니다.</div><div class="progress"><div id="bar"></div></div></section>
+
+<section class="card">
+<h2 style="font-size:13px;margin:0 0 9px">OOS 결과</h2>
+<div class="tablewrap"><table><thead><tr><th>전략/종목/진입</th><th>파라미터</th><th>Train 거래</th><th>Train 승률</th><th>OOS 거래</th><th>OOS 승률</th><th>Gross Exp</th><th>Cost</th><th>Net Exp</th><th>PF</th><th>MDD</th><th>판정</th></tr></thead><tbody id="body"><tr><td colspan="12" style="text-align:center;color:#718096">아직 실행하지 않았습니다.</td></tr></tbody></table></div>
+</section>
+<section class="card note"><b>구현 보호:</b> 같은 봉에서 TP와 SL이 모두 닿을 수 있으면 SL 우선. 신호봉 완성 전 진입 금지. 15M은 완성봉만 사용. Train에서 선택한 설정을 OOS 전에 동결. 비용 차감 전/후 분리. Order Flow 데이터가 없으면 임의 대체 금지.</section>
+<section class="card"><div id="log" class="log">LOG</div></section>
+</main>
+<script>
+const API='https://api.bybit.com/v5/market/kline', SYMS=['BTCUSDT','ETHUSDT'];
+const body=document.getElementById('body'),statusEl=document.getElementById('status'),bar=document.getElementById('bar'),logEl=document.getElementById('log'),btn=document.getElementById('run');
+function log(x){logEl.textContent+='\n'+x;logEl.scrollTop=logEl.scrollHeight}
+function ema(a,n){let k=2/(n+1),o=[],x=a[0];o[0]=x;for(let i=1;i<a.length;i++){x=a[i]*k+x*(1-k);o[i]=x}return o}
+function rsi(a,n=14){let out=new Array(a.length).fill(NaN),ag=0,al=0;for(let i=1;i<a.length;i++){let d=a[i]-a[i-1],g=Math.max(d,0),l=Math.max(-d,0);if(i<=n){ag+=g;al+=l;if(i===n){ag/=n;al/=n;out[i]=al?100-100/(1+ag/al):100}}else{ag=(ag*(n-1)+g)/n;al=(al*(n-1)+l)/n;out[i]=al?100-100/(1+ag/al):100}}return out}
+function med(a){let b=a.filter(Number.isFinite).sort((x,y)=>x-y);if(!b.length)return NaN;let m=Math.floor(b.length/2);return b.length%2?b[m]:(b[m-1]+b[m])/2}
+async function fetchBars(sym,days){
+ let target=days*288+300,end=Date.now(),all=[];
+ while(all.length<target){let q=new URLSearchParams({category:'linear',symbol:sym,interval:'5',limit:'1000',end:String(end)}),r=await fetch(API+'?'+q),j=await r.json();if(j.retCode!==0)throw Error(j.retMsg);let x=j.result.list;if(!x.length)break;all.push(...x);end=Math.min(...x.map(z=>+z[0]))-1;await new Promise(r=>setTimeout(r,25))}
+ let m=new Map;for(let x of all)m.set(+x[0],{t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]});
+ let cut=Date.now()-days*864e5;return [...m.values()].sort((a,b)=>a.t-b.t).filter(x=>x.t>=cut)
+}
+function prep(b){
+ let c=b.map(x=>x.c),e9=ema(c,9),e20=ema(c,20),e12=ema(c,12),e26=ema(c,26),mac=e12.map((x,i)=>x-e26[i]),sig=ema(mac,9),rs=rsi(c);
+ for(let i=0;i<b.length;i++){b[i].e9=e9[i];b[i].e20=e20[i];b[i].mac=mac[i];b[i].ms=sig[i];b[i].rsi=rs[i];let vs=b.slice(Math.max(0,i-19),i+1).map(x=>x.v);b[i].vr=b[i].v/(vs.reduce((a,z)=>a+z,0)/vs.length)}
+}
+function make15(b){
+ let g=[];for(let i=0;i+2<b.length;i+=3){let z=b.slice(i,i+3);g.push({t:z[2].t,o:z[0].o,h:Math.max(...z.map(x=>x.h)),l:Math.min(...z.map(x=>x.l)),c:z[2].c,v:z.reduce((s,x)=>s+x.v,0)})}prep(g);return g
+}
+function gate(x,side){return side===1?(x.e9>x.e20&&x.mac>x.ms&&x.rsi>=45&&x.rsi<=65&&x.vr>=1.5&&x.c>=x.h*.996):(x.e9<x.e20&&x.mac<x.ms&&x.rsi>=35&&x.rsi<=55&&x.vr>=1.5&&x.c<=x.l*1.004)}
+function sigMTF(b){prep(b);let b15=make15(b),out=[];for(let i=40;i<b.length-1;i++){let q=b15.filter(x=>x.t<=b[i].t);if(!q.length)continue;let z=q[q.length-1];if(gate(b[i],1)&&gate(z,1))out.push([i,1]);else if(gate(b[i],-1)&&gate(z,-1))out.push([i,-1])}return out}
+function profile(day){
+ if(day.length<20)return null;let lo=Math.min(...day.map(x=>x.l)),hi=Math.max(...day.map(x=>x.h)),w=(hi-lo)/50,vol=Array(50).fill(0);if(!w)return null;
+ for(let x of day){let typ=(x.h+x.l+x.c)/3,j=Math.max(0,Math.min(49,Math.floor((typ-lo)/w)));vol[j]+=x.v}
+ let poc=vol.indexOf(Math.max(...vol)),ord=[...Array(50).keys()].sort((a,b)=>vol[b]-vol[a]),tot=vol.reduce((a,x)=>a+x,0),acc=0,ch=[];for(let j of ord){ch.push(j);acc+=vol[j];if(acc/tot>=.7)break}
+ return {poc:lo+(poc+.5)*w,val:lo+Math.min(...ch)*w,vah:lo+(Math.max(...ch)+1)*w}
+}
+function sigVP(b){
+ let out=[],days={};for(let i=0;i<b.length;i++){let d=new Date(b[i].t).toISOString().slice(0,10);(days[d]??=[]).push({...b[i],i})}
+ let ds=Object.keys(days).sort(),raw=b.map((x,i)=>i?((x.c/b[i-1].c-1)*x.v):0);
+ for(let d=1;d<ds.length;d++){let p=profile(days[ds[d-1]]);if(!p)continue;for(let x of days[ds[d]]){let i=x.i,base=med(raw.slice(Math.max(0,i-48),i).map(Math.abs));if(!base)continue;let tape=raw[i]/base,tol=(p.vah-p.val)*.06;if(Math.abs(x.c-p.val)<=tol&&tape>=.5)out.push([i,1]);else if(Math.abs(x.c-p.vah)<=tol&&tape<=-.5)out.push([i,-1])}}
+ return out
+}
+function sigMOM(b,p){prep(b);let out=[];for(let i=50;i<b.length-1;i++){let past=b[i].c/b[i-p.lag].c-1,rets=[];for(let j=i-48;j<i;j++)rets.push(Math.abs(b[j].c/b[j-1].c-1));let m=med(rets),r1=Math.abs(b[i].c/b[i-1].c-1);if(!m||r1>p.jump*m||b[i].vr<p.vol)continue;let s=0;if(past>p.thr)s=1;else if(past<-p.thr)s=-1;if(!s)continue;if(p.kind==='REV')s=-s;out.push([i,s])}return out}
+function bt(b,sigs,mode,slp,tpp,fee){
+ let next=0,tr=[],eq=1,peak=1,mdd=0;
+ for(let [i,s] of sigs){if(i<next||i+1>=b.length)continue;let ei=i+1,entry;
+  if(mode==='MKT')entry=b[ei].o;else{let lp=b[i].c,f=-1;for(let j=i+1;j<Math.min(i+3,b.length);j++)if(b[j].l<=lp&&b[j].h>=lp){f=j;break}if(f<0)continue;ei=f;entry=lp}
+  let sl=s===1?entry*(1-slp):entry*(1+slp),tp=s===1?entry*(1+tpp):entry*(1-tpp),ex=b[Math.min(ei+8,b.length-1)].c,xi=Math.min(ei+8,b.length-1);
+  for(let j=ei;j<=xi;j++){let hs=s===1?b[j].l<=sl:b[j].h>=sl,ht=s===1?b[j].h>=tp:b[j].l<=tp;if(hs){ex=sl;xi=j;break}if(ht){ex=tp;xi=j;break}}
+  let gross=s*(ex-entry)/entry,cost=(mode==='MKT'?fee.taker+fee.slip:fee.maker)+fee.taker+fee.slip,net=gross-cost;tr.push({gross,cost,net});eq*=1+net;peak=Math.max(peak,eq);mdd=Math.max(mdd,(peak-eq)/peak);next=xi+1
+ }
+ let wins=tr.filter(x=>x.net>0),loss=tr.filter(x=>x.net<=0),sum=k=>tr.reduce((a,x)=>a+x[k],0),gw=sum.call(null,'net');gw=wins.reduce((a,x)=>a+x.net,0);let gl=Math.abs(loss.reduce((a,x)=>a+x.net,0));
+ return {n:tr.length,win:tr.length?wins.length/tr.length*100:0,g:tr.length?sum('gross')/tr.length*100:0,c:tr.length?sum('cost')/tr.length*100:0,net:tr.length?sum('net')/tr.length*100:0,pf:gl?gw/gl:(gw?99:0),mdd:mdd*100}
+}
+function configs(k){
+ let a=[];if(k==='MTF')for(let sl of [.006,.01,.014])for(let tp of [.0025,.004,.006])a.push({sl,tp});
+ if(k==='VP')for(let sl of [.01,.015,.02])for(let tp of [.0025,.004,.006])a.push({sl,tp});
+ if(k==='MOM')for(let sl of [.006,.01,.014])for(let tp of [.0025,.004,.006])for(let lag of [2,3,6])for(let thr of [.001,.002])for(let kind of ['MOM','REV'])a.push({sl,tp,lag,thr,kind,jump:4,vol:.8});
+ return a
+}
+function signals(k,b,p){if(k==='MTF')return sigMTF(b);if(k==='VP')return sigVP(b);return sigMOM(b,p)}
+function ptxt(k,p){return k==='MOM'?`${p.kind} lag${p.lag} thr${(p.thr*100).toFixed(2)}% TP${(p.tp*100).toFixed(2)} SL${(p.sl*100).toFixed(2)}`:`TP${(p.tp*100).toFixed(2)}% SL${(p.sl*100).toFixed(2)}%`}
+async function run(){
+ btn.disabled=true;body.innerHTML='';logEl.textContent='LOG';bar.style.width='0%';
+ let days=+document.getElementById('days').value,oos=+document.getElementById('oos').value,minWin=+document.getElementById('minWin').value,minTrades=+document.getElementById('minTrades').value;
+ let fee={taker:+document.getElementById('taker').value/100,maker:+document.getElementById('maker').value/100,slip:+document.getElementById('slip').value/100};
+ try{
+  let rows=[];
+  for(let si=0;si<SYMS.length;si++){
+   let sym=SYMS[si];statusEl.innerHTML=`<strong>${sym}</strong> 데이터 다운로드 중…`;let full=await fetchBars(sym,days);log(`${sym}: ${full.length} bars`);
+   let cut=Math.floor(full.length*(1-oos)),train=full.slice(0,cut),test=full.slice(cut);bar.style.width=`${20+si*20}%`;
+   for(let k of ['MTF','VP','MOM'])for(let mode of ['MKT','LMT']){
+    let best=null;
+    for(let p of configs(k)){let r=bt(train,signals(k,train.map(x=>({...x})),p),mode,p.sl,p.tp,fee),score=r.net*20+r.win*.03+Math.min(r.pf,3)-r.mdd*.01;if(!best||score>best.score)best={p,r,score}}
+    let rr=bt(test,signals(k,test.map(x=>({...x})),best.p),mode,best.p.sl,best.p.tp,fee),pass=rr.n>=minTrades&&rr.win>=minWin&&rr.net>0&&rr.pf>1;
+    rows.push({sym,k,mode,p:best.p,tr:best.r,te:rr,pass});log(`${sym} ${k}/${mode}: OOS ${rr.win.toFixed(1)}%, ${rr.net.toFixed(3)}%, PF ${rr.pf.toFixed(2)} ${pass?'PASS':'FAIL'}`)
+   }
+  }
+  rows.push({sym:'BTC+ETH',k:'OFI',mode:'REAL TICK',unavailable:true});
+  rows.sort((a,b)=>(b.pass?1:0)-(a.pass?1:0)||((b.te?.net??-999)-(a.te?.net??-999)));
+  body.innerHTML=rows.map(x=>x.unavailable?`<tr class="fail"><td>OFI · 실제 체결</td><td>Safari 단일파일: historical tick archive 미지원</td><td colspan="8">OHLCV 대체 금지</td><td>—</td><td class="bad">UNAVAILABLE</td></tr>`:
+  `<tr class="${x.pass?'pass':'fail'}"><td>${x.k} · ${x.sym} · ${x.mode==='MKT'?'시장가':'지정가'}</td><td>${ptxt(x.k,x.p)}</td><td>${x.tr.n}</td><td>${x.tr.win.toFixed(2)}%</td><td>${x.te.n}</td><td class="${x.te.win>=minWin?'good':'bad'}">${x.te.win.toFixed(2)}%</td><td>${x.te.g.toFixed(3)}%</td><td>${x.te.c.toFixed(3)}%</td><td class="${x.te.net>0?'good':'bad'}">${x.te.net.toFixed(3)}%</td><td>${x.te.pf.toFixed(2)}</td><td>${x.te.mdd.toFixed(2)}%</td><td class="${x.pass?'good':'bad'}">${x.pass?'PASS':'FAIL'}</td></tr>`).join('');
+  let passes=rows.filter(x=>x.pass);statusEl.innerHTML=passes.length?`<strong>PASS ${passes.length}개.</strong> OOS 승률 ≥ ${minWin}% + NetExp > 0 + PF > 1 + 거래 ≥ ${minTrades}.`:`<strong style="color:#ff667b">PASS 0개.</strong> 기준을 낮추지 않습니다.`;
+  bar.style.width='100%';
+ }catch(e){console.error(e);statusEl.innerHTML=`<strong style="color:#ff667b">오류:</strong> ${e.message}`;log('ERROR '+e.message)}
+ finally{btn.disabled=false}
+}
+btn.onclick=run;
+</script>
+</body></html>
