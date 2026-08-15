@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crypto 5M Scalping Optimizer V5</title>
+<style>
+:root{color-scheme:dark;--bg:#090d13;--p:#111823;--p2:#0d131c;--b:#243244;--t:#eef3f8;--m:#8796aa;--g:#27d3a2;--r:#ff657b;--a:#78a9ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:15px 18px;border-bottom:1px solid var(--b);background:#0c121a;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+h1{font-size:17px;margin:0}header p{margin:3px 0 0;color:var(--m);font-size:11px}
+.controls{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.ctl{display:flex;flex-direction:column;gap:4px}.ctl span{font-size:9px;color:var(--m)}
+select,input,button{background:#151e2a;border:1px solid var(--b);color:var(--t);border-radius:7px;min-height:34px;padding:0 9px}
+button{cursor:pointer;font-weight:700}button.primary{background:#244d7c;border-color:#477fbd}button:disabled{opacity:.45}
+main{padding:12px;display:grid;gap:12px}.card{background:var(--p);border:1px solid var(--b);border-radius:11px;padding:13px}
+.status{font-size:11px;color:var(--m);line-height:1.6}.status strong{color:var(--t)}
+.progress{height:6px;background:#151d28;border-radius:999px;overflow:hidden;margin-top:7px}.progress>div{height:100%;width:0;background:var(--a);transition:width .2s}
+table{width:100%;border-collapse:collapse;font-size:10px}th,td{padding:8px 6px;border-bottom:1px solid #1e2a38;text-align:right;font-variant-numeric:tabular-nums}th:first-child,td:first-child{text-align:left}th{color:#9eacbd;font-size:9px;position:sticky;top:0;background:var(--p)}
+.good{color:var(--g)}.bad{color:var(--r)}.winner{background:#12231f!important}.reject{opacity:.62}
+.note{font-size:10px;color:var(--m);line-height:1.6}.log{max-height:150px;overflow:auto;background:#080c12;border-radius:7px;padding:8px;font:10px ui-monospace,SFMono-Regular,monospace;color:#93a3b8;white-space:pre-wrap}
+.badge{font-size:9px;padding:2px 6px;border-radius:999px;background:#21334b;color:#c6ddff}
+@media(max-width:850px){.tablewrap{overflow-x:auto}.controls{display:grid;grid-template-columns:1fr 1fr}.controls button{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Crypto 5M Scalping Optimizer V5</h1>
+    <p>BTCUSDT · ETHUSDT / 승률 55% 이상을 OOS에서 통과해야 후보 인정</p>
+  </div>
+  <div class="controls">
+    <label class="ctl"><span>총 기간</span><select id="days"><option value="30">30일</option><option value="60" selected>60일</option><option value="90">90일</option></select></label>
+    <label class="ctl"><span>OOS 비율</span><select id="oosPct"><option value="25">25%</option><option value="30" selected>30%</option><option value="35">35%</option></select></label>
+    <label class="ctl"><span>최소 OOS 승률</span><input id="minWin" type="number" value="55" step="1" min="50" max="80"></label>
+    <label class="ctl"><span>최소 OOS 거래수</span><input id="minTrades" type="number" value="60" step="10" min="20"></label>
+    <label class="ctl"><span>리스크/거래 %</span><input id="riskPct" type="number" value="0.35" step="0.05" min="0.1" max="1"></label>
+    <label class="ctl"><span>Taker / side %</span><input id="takerFee" type="number" value="0.055" step="0.005" min="0"></label>
+    <label class="ctl"><span>Maker / side %</span><input id="makerFee" type="number" value="0.020" step="0.005" min="0"></label>
+    <label class="ctl"><span>Slippage / side %</span><input id="slip" type="number" value="0.015" step="0.005" min="0"></label>
+    <button id="runBtn" class="primary">최적화 + OOS 검증</button>
+  </div>
+</header>
+
+<main>
+<section class="card">
+  <div id="status" class="status"><strong>준비.</strong> 앞 70% 구간에서 파라미터를 탐색하고, 뒤 30% 구간은 손대지 않은 검증용으로 사용합니다.</div>
+  <div class="progress"><div id="bar"></div></div>
+</section>
+
+<section class="card note">
+  <strong>이번 기준</strong><br>
+  승률은 반드시 <b>Out-of-Sample에서 55% 이상</b>이어야 합니다. 동시에 OOS Net Expectancy &gt; 0, PF &gt; 1, 최소 거래수도 통과해야 합니다.
+  승률만 높고 기대값이 음수면 탈락합니다. 학습구간에서 좋아도 검증구간에서 무너지면 탈락합니다.
+  시장가/지정가를 모두 탐색하며, 지정가는 Maker 진입 + Taker 청산으로 계산합니다.
+</section>
+
+<section class="card">
+  <h2 style="font-size:13px;margin:0 0 10px">OOS 최종 후보</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>순위</th><th>전략/진입</th><th>파라미터</th><th>OOS 거래</th><th>승률</th><th>Gross Exp</th><th>CostR</th><th>Net Exp</th><th>PF</th><th>MDD</th><th>거래/일</th><th>판정</th></tr></thead>
+    <tbody id="finalBody"><tr><td colspan="12" style="text-align:center;color:#718096">아직 실행하지 않았습니다.</td></tr></tbody>
+  </table></div>
+</section>
+
+<section class="card">
+  <h2 style="font-size:13px;margin:0 0 10px">전략별 Train 1위 → OOS 결과</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>전략/진입</th><th>Train 승률</th><th>Train NetExp</th><th>OOS 거래</th><th>OOS 승률</th><th>OOS NetExp</th><th>OOS PF</th><th>OOS MDD</th><th>파라미터</th></tr></thead>
+    <tbody id="detailBody"></tbody>
+  </table></div>
+</section>
+
+<section class="card"><div id="log" class="log">LOG</div></section>
+</main>
+
+<script>
+const API='https://api.bybit.com/v5/market/kline';
+const SYMBOLS=['BTCUSDT','ETHUSDT'];
+const NAMES={A:'EMA Micro Pullback',B:'VWAP Reversion',C:'Micro Range Fade',D:'Momentum Burst'};
+const runBtn=document.getElementById('runBtn'),statusEl=document.getElementById('status'),bar=document.getElementById('bar'),logEl=document.getElementById('log');
+
+function log(s){logEl.textContent+=`\n${new Date().toLocaleTimeString()} ${s}`;logEl.scrollTop=logEl.scrollHeight}
+function ema(v,p){const k=2/(p+1),o=[];let x=v[0];o[0]=x;for(let i=1;i<v.length;i++){x=v[i]*k+x*(1-k);o[i]=x}return o}
+function median(xs){if(!xs.length)return 0;const a=[...xs].sort((a,b)=>a-b),m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2}
+function maxPrev(b,i,n,k){let v=-Infinity;for(let j=i-n;j<i;j++)v=Math.max(v,b[j][k]);return v}
+function minPrev(b,i,n,k){let v=Infinity;for(let j=i-n;j<i;j++)v=Math.min(v,b[j][k]);return v}
+function fmt(x,n=2){return Number.isFinite(x)?x.toFixed(n):'—'}
+function cls(x){return x>0?'good':x<0?'bad':''}
+
+async function fetchBars(symbol,days,base,span){
+  const target=days*288+150,loops=Math.ceil(target/1000);let end=Date.now(),all=[];
+  for(let n=0;n<loops;n++){
+    const q=new URLSearchParams({category:'linear',symbol,interval:'5',limit:'1000',end:String(end)});
+    const r=await fetch(`${API}?${q}`);if(!r.ok)throw new Error(`${symbol} HTTP ${r.status}`);
+    const j=await r.json();if(j.retCode!==0)throw new Error(`${symbol}: ${j.retMsg}`);
+    const rows=j.result.list;if(!rows.length)break;
+    all.push(...rows);end=Math.min(...rows.map(x=>+x[0]))-1;
+    bar.style.width=`${base+span*(n+1)/loops}%`;
+    await new Promise(r=>setTimeout(r,25));
+  }
+  const m=new Map();for(const x of all)m.set(+x[0],{t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]});
+  const cutoff=Date.now()-days*86400000;
+  return [...m.values()].sort((a,b)=>a.t-b.t).filter(x=>x.t>=cutoff);
+}
+
+function prepare(b){
+  const c=b.map(x=>x.c);
+  for(const p of [7,9,12,18,21,30]){const e=ema(c,p);for(let i=0;i<b.length;i++)b[i][`ema${p}`]=e[i]}
+  let day='',pv=0,p2v=0,v=0;
+  for(let i=0;i<b.length;i++){
+    const d=new Date(b[i].t).toISOString().slice(0,10);
+    if(d!==day){day=d;pv=0;p2v=0;v=0}
+    const tp=(b[i].h+b[i].l+b[i].c)/3;
+    pv+=tp*b[i].v;p2v+=tp*tp*b[i].v;v+=b[i].v;
+    const vw=pv/v,variance=Math.max(0,p2v/v-vw*vw);
+    b[i].vwap=vw;b[i].std=Math.sqrt(variance);
+  }
+}
+
+function makeConfigs(){
+  const out=[];
+  // A: fast/slow EMA, confirmation strictness
+  for(const fast of [7,9,12])for(const slow of [18,21,30])if(fast<slow)
+    for(const hold of [4,6,8])for(const mode of ['MARKET','LIMIT'])
+      out.push({k:'A',mode,fast,slow,hold});
+  // B: VWAP z-entry and stop z
+  for(const z of [0.8,1.0,1.2,1.4])for(const stopZ of [1.5,1.8,2.1])for(const mode of ['MARKET','LIMIT'])
+    out.push({k:'B',mode,z,stopZ,hold:8});
+  // C: micro range length + partial target %
+  for(const len of [8,10,12,16])for(const t2 of [0.55,0.7,0.85])for(const mode of ['MARKET','LIMIT'])
+    out.push({k:'C',mode,len,t2,hold:10});
+  // D: body/volume burst thresholds
+  for(const bodyMult of [1.3,1.5,1.8,2.1])for(const volMult of [1.2,1.5,1.8])for(const mode of ['MARKET','LIMIT'])
+    out.push({k:'D',mode,bodyMult,volMult,hold:6});
+  return out;
+}
+
+function signals(b,cfg){
+  const s=[],k=cfg.k;
+  if(k==='A'){
+    for(let i=35;i<b.length-1;i++){
+      const x=b[i],f=x[`ema${cfg.fast}`],slw=x[`ema${cfg.slow}`],pf=b[i-1][`ema${cfg.fast}`];
+      if(f>slw&&f>pf&&x.l<=f&&x.c>f&&x.c>x.o){
+        const sl=Math.min(x.l,b[i-1].l,b[i-2].l);if(sl<x.c)s.push({i,dir:1,sl,limit:f});
+      }
+      if(f<slw&&f<pf&&x.h>=f&&x.c<f&&x.c<x.o){
+        const sl=Math.max(x.h,b[i-1].h,b[i-2].h);if(sl>x.c)s.push({i,dir:-1,sl,limit:f});
+      }
+    }
+  }
+  if(k==='B'){
+    for(let i=8;i<b.length-1;i++){
+      const x=b[i],p=b[i-1];if(!x.std)continue;
+      const up=x.vwap+cfg.z*x.std,lo=x.vwap-cfg.z*x.std;
+      if(p.c<lo&&x.c>lo&&x.c>x.o)s.push({i,dir:1,sl:x.vwap-cfg.stopZ*x.std,limit:lo,target:x.vwap});
+      if(p.c>up&&x.c<up&&x.c<x.o)s.push({i,dir:-1,sl:x.vwap+cfg.stopZ*x.std,limit:up,target:x.vwap});
+    }
+  }
+  if(k==='C'){
+    for(let i=cfg.len+2;i<b.length-1;i++){
+      const hi=maxPrev(b,i,cfg.len,'h'),lo=minPrev(b,i,cfg.len,'l'),x=b[i],mid=(hi+lo)/2,w=hi-lo;
+      if(w/x.c<0.0012)continue;
+      if(x.l<lo&&x.c>lo&&x.c>x.o)s.push({i,dir:1,sl:x.l,limit:lo,t1:mid,t2:lo+cfg.t2*w});
+      if(x.h>hi&&x.c<hi&&x.c<x.o)s.push({i,dir:-1,sl:x.h,limit:hi,t1:mid,t2:hi-cfg.t2*w});
+    }
+  }
+  if(k==='D'){
+    for(let i=22;i<b.length-1;i++){
+      const bodies=[],vols=[];for(let j=i-20;j<i;j++){bodies.push(Math.abs(b[j].c-b[j].o));vols.push(b[j].v)}
+      const mb=median(bodies),mv=median(vols),x=b[i],bd=Math.abs(x.c-x.o),rg=Math.max(x.h-x.l,1e-12),pos=(x.c-x.l)/rg;
+      if(bd<cfg.bodyMult*mb||x.v<cfg.volMult*mv)continue;
+      if(x.c>x.o&&pos>0.72)s.push({i,dir:1,sl:Math.min(x.o,x.l),limit:(x.o+x.c)/2});
+      if(x.c<x.o&&pos<0.28)s.push({i,dir:-1,sl:Math.max(x.o,x.h),limit:(x.o+x.c)/2});
+    }
+  }
+  return s;
+}
+
+function bt(b,sigs,cfg,riskPct,fees,limitBars){
+  let eq=100,peak=100,mdd=0,next=0,tr=[],loss=0,maxLoss=0;
+  const map=new Map();for(const s of sigs)if(!map.has(s.i))map.set(s.i,s);
+
+  for(let i=1;i<b.length-1;i++){
+    if(i<next)continue;const s=map.get(i);if(!s)continue;
+    let ei=i+1,entry;
+    if(cfg.mode==='MARKET')entry=b[ei].o;
+    else{
+      let f=-1;for(let j=i+1;j<=Math.min(i+limitBars,b.length-1);j++)if(b[j].l<=s.limit&&b[j].h>=s.limit){f=j;break}
+      if(f<0)continue;ei=f;entry=s.limit;
+    }
+
+    const risk=Math.abs(entry-s.sl);if(!isFinite(risk)||risk<=0)continue;
+    const rf=risk/entry;if(rf<0.00035||rf>0.012)continue;
+
+    let gross=0,exit=null,half=false,halfR=0;
+    const maxJ=Math.min(b.length-1,ei+cfg.hold);
+
+    for(let j=ei;j<=maxJ;j++){
+      const x=b[j],hitSL=s.dir===1?x.l<=s.sl:x.h>=s.sl;
+      if(hitSL){gross=half?halfR-.5:-1;exit=s.sl;next=j+1;break}
+
+      if(cfg.k==='A'){
+        const f=x[`ema${cfg.fast}`],fail=s.dir===1?x.c<f:x.c>f;
+        if(j>ei&&fail){exit=x.c;gross=s.dir===1?(exit-entry)/risk:(entry-exit)/risk;next=j+1;break}
+      }
+      if(cfg.k==='B'){
+        const hit=s.dir===1?x.h>=s.target:x.l<=s.target;
+        if(hit){exit=s.target;gross=s.dir===1?(exit-entry)/risk:(entry-exit)/risk;next=j+1;break}
+      }
+      if(cfg.k==='C'){
+        if(!half){
+          const h1=s.dir===1?x.h>=s.t1:x.l<=s.t1;
+          if(h1){const r1=s.dir===1?(s.t1-entry)/risk:(entry-s.t1)/risk;halfR=.5*r1;half=true}
+        }
+        if(half){
+          const h2=s.dir===1?x.h>=s.t2:x.l<=s.t2;
+          if(h2){const r2=s.dir===1?(s.t2-entry)/risk:(entry-s.t2)/risk;gross=halfR+.5*r2;exit=s.t2;next=j+1;break}
+        }
+      }
+      if(cfg.k==='D'){
+        const opp=s.dir===1?x.c<x.o:x.c>x.o;
+        if(j>ei&&opp){exit=x.c;gross=s.dir===1?(exit-entry)/risk:(entry-exit)/risk;next=j+1;break}
+      }
+
+      if(j===maxJ){exit=x.c;const r=s.dir===1?(exit-entry)/risk:(entry-exit)/risk;gross=half?halfR+.5*r:r;next=j+1}
+    }
+    if(exit==null)continue;
+
+    const posFrac=(riskPct/100)/rf;
+    const costPct=(cfg.mode==='MARKET'?fees.taker+fees.slip:fees.maker)+(fees.taker+fees.slip);
+    const costR=(posFrac*(costPct/100))/(riskPct/100);
+    const net=gross-costR,ret=net*riskPct;
+    eq*=1+ret/100;peak=Math.max(peak,eq);mdd=Math.max(mdd,(peak-eq)/peak*100);
+    if(net<0){loss++;maxLoss=Math.max(maxLoss,loss)}else loss=0;
+    tr.push({gross,costR,net});
+  }
+
+  const wins=tr.filter(x=>x.net>0),losses=tr.filter(x=>x.net<=0);
+  const gw=wins.reduce((s,x)=>s+x.net,0),gl=Math.abs(losses.reduce((s,x)=>s+x.net,0));
+  const avg=k=>tr.length?tr.reduce((s,x)=>s+x[k],0)/tr.length:0;
+  return {
+    trades:tr.length,win:tr.length?wins.length/tr.length*100:0,
+    gross:avg('gross'),cost:avg('costR'),net:avg('net'),
+    pf:gl?gw/gl:(gw?99:0),mdd,netPct:eq-100,maxLoss
+  };
+}
+
+function score(r){
+  // train ranking favors net edge but also rewards stable >55% winrate
+  return r.net*100 + Math.min(r.win,70)*0.15 + Math.min(r.pf,3)*3 - r.mdd*0.08;
+}
+function cfgText(c){
+  if(c.k==='A')return `EMA ${c.fast}/${c.slow}, hold ${c.hold}`;
+  if(c.k==='B')return `z ${c.z}, stop ${c.stopZ}`;
+  if(c.k==='C')return `range ${c.len}, t2 ${c.t2}`;
+  return `body ${c.bodyMult}, vol ${c.volMult}`;
+}
+
+async function run(){
+  runBtn.disabled=true;bar.style.width='0%';logEl.textContent='LOG';
+  const days=+document.getElementById('days').value,oosPct=+document.getElementById('oosPct').value;
+  const minWin=+document.getElementById('minWin').value,minTrades=+document.getElementById('minTrades').value;
+  const riskPct=+document.getElementById('riskPct').value;
+  const fees={taker:+document.getElementById('takerFee').value,maker:+document.getElementById('makerFee').value,slip:+document.getElementById('slip').value};
+  const limitBars=2;
+
+  statusEl.innerHTML=`<strong>실행 중.</strong> ${days}일 데이터 → Train ${100-oosPct}% / OOS ${oosPct}%`;
+  try{
+    const all={};
+    for(let s=0;s<SYMBOLS.length;s++){
+      const b=await fetchBars(SYMBOLS[s],days,s*40,40);prepare(b);all[SYMBOLS[s]]=b;log(`${SYMBOLS[s]} ${b.length} bars`);
+    }
+
+    const configs=makeConfigs(),grouped={};
+    for(const c of configs){const key=`${c.k}_${c.mode}`;(grouped[key]??=[]).push(c)}
+
+    const winners=[];
+    const detail=[];
+
+    let done=0,total=Object.keys(grouped).length;
+    for(const [key,cfgs] of Object.entries(grouped)){
+      const trainRows=[];
+      for(const cfg of cfgs){
+        let agg={trades:0,wNum:0,grossNum:0,costNum:0,netNum:0,pfNum:0,mdd:0};
+        for(const sym of SYMBOLS){
+          const full=all[sym],split=Math.floor(full.length*(1-oosPct/100)),b=full.slice(0,split);
+          const r=bt(b,signals(b,cfg),cfg,riskPct,fees,limitBars);
+          agg.trades+=r.trades;agg.wNum+=r.win*r.trades;agg.grossNum+=r.gross*r.trades;agg.costNum+=r.cost*r.trades;agg.netNum+=r.net*r.trades;agg.pfNum+=r.pf*r.trades;agg.mdd=Math.max(agg.mdd,r.mdd);
+        }
+        const t=agg.trades||1;
+        const r={trades:agg.trades,win:agg.wNum/t,gross:agg.grossNum/t,cost:agg.costNum/t,net:agg.netNum/t,pf:agg.pfNum/t,mdd:agg.mdd};
+        trainRows.push({cfg,r,score:score(r)});
+      }
+      trainRows.sort((a,b)=>b.score-a.score);
+      const best=trainRows[0];
+
+      // OOS eval only for best train config
+      let agg={trades:0,wNum:0,grossNum:0,costNum:0,netNum:0,pfNum:0,mdd:0};
+      for(const sym of SYMBOLS){
+        const full=all[sym],split=Math.floor(full.length*(1-oosPct/100)),b=full.slice(split);
+        const r=bt(b,signals(b,best.cfg),best.cfg,riskPct,fees,limitBars);
+        agg.trades+=r.trades;agg.wNum+=r.win*r.trades;agg.grossNum+=r.gross*r.trades;agg.costNum+=r.cost*r.trades;agg.netNum+=r.net*r.trades;agg.pfNum+=r.pf*r.trades;agg.mdd=Math.max(agg.mdd,r.mdd);
+      }
+      const t=agg.trades||1;
+      const oos={trades:agg.trades,win:agg.wNum/t,gross:agg.grossNum/t,cost:agg.costNum/t,net:agg.netNum/t,pf:agg.pfNum/t,mdd:agg.mdd};
+      const pass=oos.trades>=minTrades&&oos.win>=minWin&&oos.net>0&&oos.pf>1;
+      const item={key,cfg:best.cfg,train:best.r,oos,pass,tradesPerDay:oos.trades/(days*(oosPct/100)*SYMBOLS.length)};
+      winners.push(item);detail.push(item);
+
+      done++;bar.style.width=`${80+20*done/total}%`;
+      log(`${key}: Train ${best.r.win.toFixed(1)}%/${best.r.net.toFixed(3)}R -> OOS ${oos.win.toFixed(1)}%/${oos.net.toFixed(3)}R ${pass?'PASS':'FAIL'}`);
+    }
+
+    const passes=winners.filter(x=>x.pass).sort((a,b)=>b.oos.net-a.oos.net);
+    const ranked=[...passes,...winners.filter(x=>!x.pass).sort((a,b)=>b.oos.net-a.oos.net)];
+
+    document.getElementById('finalBody').innerHTML=ranked.map((x,i)=>`
+      <tr class="${x.pass?(i===0?'winner':''):'reject'}">
+        <td>${i+1}</td><td>${x.cfg.k} · ${NAMES[x.cfg.k]} · ${x.cfg.mode==='MARKET'?'시장가':'지정가'}</td>
+        <td>${cfgText(x.cfg)}</td><td>${x.oos.trades}</td>
+        <td class="${x.oos.win>=minWin?'good':'bad'}">${fmt(x.oos.win)}%</td>
+        <td class="${cls(x.oos.gross)}">${fmt(x.oos.gross,3)}R</td><td>${fmt(x.oos.cost,3)}R</td>
+        <td class="${cls(x.oos.net)}">${fmt(x.oos.net,3)}R</td>
+        <td class="${cls(x.oos.pf-1)}">${fmt(x.oos.pf)}</td><td>${fmt(x.oos.mdd)}%</td><td>${fmt(x.tradesPerDay,1)}</td>
+        <td class="${x.pass?'good':'bad'}">${x.pass?'PASS':'FAIL'}</td>
+      </tr>`).join('');
+
+    document.getElementById('detailBody').innerHTML=detail.map(x=>`
+      <tr><td>${x.cfg.k} · ${NAMES[x.cfg.k]} · ${x.cfg.mode==='MARKET'?'시장가':'지정가'}</td>
+      <td>${fmt(x.train.win)}%</td><td>${fmt(x.train.net,3)}R</td>
+      <td>${x.oos.trades}</td><td>${fmt(x.oos.win)}%</td><td>${fmt(x.oos.net,3)}R</td>
+      <td>${fmt(x.oos.pf)}</td><td>${fmt(x.oos.mdd)}%</td><td>${cfgText(x.cfg)}</td></tr>`).join('');
+
+    if(passes.length){
+      const w=passes[0];
+      statusEl.innerHTML=`<strong>통과 후보 ${passes.length}개.</strong> 1위: ${w.cfg.k} · ${NAMES[w.cfg.k]} · ${w.cfg.mode==='MARKET'?'시장가':'지정가'} / OOS 승률 ${fmt(w.oos.win)}% / Net ${fmt(w.oos.net,3)}R / PF ${fmt(w.oos.pf)}.`;
+    }else{
+      statusEl.innerHTML=`<strong style="color:#ff657b">통과 후보 0개.</strong> OOS 승률 ${minWin}% + NetExp>0 + PF>1 + 거래수 ${minTrades} 조건을 동시에 만족한 조합이 없습니다.`;
+    }
+    bar.style.width='100%';
+  }catch(e){
+    console.error(e);statusEl.innerHTML=`<strong style="color:#ff657b">실패:</strong> ${e.message}`;log(`ERROR ${e.message}`);
+  }finally{runBtn.disabled=false}
+}
+runBtn.addEventListener('click',run);
+</script>
+</body>
+</html>
