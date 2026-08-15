@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crypto 5M Scalping Backtest V3</title>
+<style>
+:root{color-scheme:dark;--bg:#090d13;--p:#111823;--p2:#0d131c;--b:#243244;--t:#eef3f8;--m:#8796aa;--g:#27d3a2;--r:#ff657b;--a:#78a9ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:16px 18px;border-bottom:1px solid var(--b);background:#0c121a;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+h1{font-size:17px;margin:0}header p{margin:3px 0 0;color:var(--m);font-size:11px}
+.controls{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.ctl{display:flex;flex-direction:column;gap:4px}.ctl span{font-size:9px;color:var(--m)}
+select,input,button{background:#151e2a;border:1px solid var(--b);color:var(--t);border-radius:7px;min-height:34px;padding:0 9px}
+button{cursor:pointer;font-weight:700}button.primary{background:#244d7c;border-color:#477fbd}button:disabled{opacity:.45;cursor:not-allowed}
+main{padding:12px;display:grid;gap:12px}
+.card{background:var(--p);border:1px solid var(--b);border-radius:11px;padding:13px}
+.status{font-size:11px;color:var(--m);line-height:1.6}.status strong{color:var(--t)}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.strategy{background:var(--p2);border:1px solid #1e2a38;border-radius:9px;padding:11px}.strategy h3{font-size:12px;margin:0 0 7px}.strategy p{font-size:10px;color:var(--m);line-height:1.5;margin:0}
+table{width:100%;border-collapse:collapse;font-size:10px}th,td{padding:8px 6px;border-bottom:1px solid #1e2a38;text-align:right;font-variant-numeric:tabular-nums}th:first-child,td:first-child{text-align:left}th{color:#9eacbd;font-size:9px;position:sticky;top:0;background:var(--p)}
+.good{color:var(--g)}.bad{color:var(--r)}.winner{background:#12231f!important}
+.note{font-size:10px;color:var(--m);line-height:1.55}
+.progress{height:6px;background:#151d28;border-radius:999px;overflow:hidden;margin-top:7px}.progress>div{height:100%;width:0;background:var(--a);transition:width .2s}
+.log{max-height:140px;overflow:auto;background:#080c12;border-radius:7px;padding:8px;font:10px ui-monospace,SFMono-Regular,monospace;color:#93a3b8;white-space:pre-wrap}
+@media(max-width:850px){.grid{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.grid{grid-template-columns:1fr}header{align-items:stretch}.controls{display:grid;grid-template-columns:1fr 1fr}.controls button{grid-column:1/-1}table{font-size:9px}.tablewrap{overflow-x:auto}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Crypto 5M Scalping Backtest V3</h1><p>BTCUSDT · ETHUSDT / 4개 전략 × 시장가/지정가 진입 비교</p></div>
+  <div class="controls">
+    <label class="ctl"><span>기간</span><select id="days"><option value="30">30일</option><option value="60">60일</option><option value="90" selected>90일</option><option value="180">180일</option></select></label>
+    
+    <label class="ctl"><span>리스크/거래</span><input id="riskPct" type="number" value="1" step="0.1" min="0.1" max="5"></label>
+    <label class="ctl"><span>Taker Fee / side %</span><input id="takerFee" type="number" value="0.055" step="0.005" min="0"></label>
+    <label class="ctl"><span>Maker Fee / side %</span><input id="makerFee" type="number" value="0.020" step="0.005" min="0"></label>
+    <label class="ctl"><span>Market Slippage / side %</span><input id="marketSlip" type="number" value="0.020" step="0.005" min="0"></label>
+    <label class="ctl"><span>Limit 유효봉</span><input id="limitBars" type="number" value="3" step="1" min="1" max="12"></label>
+    <button id="runBtn" class="primary">4개 전략 백테스트</button>
+  </div>
+</header>
+
+<main>
+<section class="card">
+  <div class="status" id="status"><strong>준비.</strong> Bybit 5분봉 데이터를 직접 내려받아 4개 전략을 같은 조건으로 비교합니다.</div>
+  <div class="progress"><div id="bar"></div></div>
+</section>
+
+<section class="grid">
+  <div class="strategy"><h3>A · EMA20/50 Pullback</h3><p>EMA20 &gt; EMA50(또는 반대) 추세. 시장가=확인봉 다음 시가, 지정가=신호 시점 EMA20 가격. 청산은 EMA20 반대 종가 이탈/시간청산.</p></div>
+  <div class="strategy"><h3>B · Breakout + First Retest</h3><p>직전 20봉 고/저 돌파 후 첫 Retest. 시장가=Retest 확인 후 다음 시가, 지정가=돌파 레벨. TP는 이전 Range 폭 0.5배 확장.</p></div>
+  <div class="strategy"><h3>C · Range False Break</h3><p>직전 20봉 Range Wick 이탈 후 복귀. 시장가=다음 시가, 지정가=깨졌던 Range 경계. 50%는 Range 중간, 50%는 반대편 경계.</p></div>
+  <div class="strategy"><h3>D · Daily VWAP Pullback</h3><p>UTC 일봉 VWAP 방향과 가격 위치가 일치할 때 VWAP Pullback 진입. TP는 당일 VWAP ±1 표준편차 밴드.</p></div>
+</section>
+
+<section class="card">
+  <h2 style="font-size:13px;margin:0 0 10px">종합 결과</h2>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>전략 / 진입</th><th>신호</th><th>체결</th><th>체결률</th><th>승률</th><th>Expectancy</th><th>Profit Factor</th><th>순수익</th><th>MDD</th><th>평균 보유</th></tr></thead>
+    <tbody id="summaryBody"><tr><td colspan="10" style="text-align:center;color:#718096">아직 실행하지 않았습니다.</td></tr></tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2 style="font-size:13px;margin:0 0 10px">종목별 결과</h2>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>전략 / 종목 / 진입</th><th>신호</th><th>체결</th><th>체결률</th><th>승률</th><th>Exp(R)</th><th>PF</th><th>Net%</th><th>MDD%</th><th>연속손실</th></tr></thead>
+    <tbody id="detailBody"></tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card note">
+  <strong>V3 비교 규칙</strong><br>
+  4개 전략 각각을 <b>시장가 진입</b>과 <b>Post-Only형 지정가 진입</b> 두 방식으로 비교합니다.
+  시장가는 신호 확인 후 다음 봉 시가에 진입하며, 진입·청산 모두 Taker 비용과 Slippage를 반영합니다.
+  지정가는 전략별 자연스러운 가격(EMA20 / 돌파레벨 / Range 경계 / VWAP)에 주문을 두고 기본 3개 봉 동안만 유효합니다.
+  그 기간에 가격이 지정가를 터치하지 않으면 미체결로 폐기합니다. 지정가 진입은 Maker 비용, 청산은 보수적으로 Taker 비용을 적용합니다.
+  같은 5분봉에서 지정가 체결과 SL이 모두 가능하면 보수적으로 체결 후 SL로 처리합니다.
+  결과에는 신호수·체결수·체결률까지 표시해, 지정가의 낮은 비용과 미체결 손실을 동시에 비교합니다.
+</section>
+
+<section class="card"><div class="log" id="log">LOG</div></section>
+</main>
+
+<script>
+const API='https://api.bybit.com/v5/market/kline';
+const SYMBOLS=['BTCUSDT','ETHUSDT'];
+const NAMES={A:'EMA Pullback',B:'Breakout Retest',C:'Range False Break',D:'VWAP Pullback'};
+const statusEl=document.getElementById('status'),bar=document.getElementById('bar'),logEl=document.getElementById('log');
+const runBtn=document.getElementById('runBtn');
+
+function log(s){logEl.textContent+=`\n${new Date().toLocaleTimeString()} ${s}`;logEl.scrollTop=logEl.scrollHeight}
+function ema(values,p){
+  const k=2/(p+1),out=new Array(values.length).fill(null);let v=values[0];out[0]=v;
+  for(let i=1;i<values.length;i++){v=values[i]*k+v*(1-k);out[i]=v}return out;
+}
+function maxPrev(bars,i,n,key){let v=-Infinity;for(let j=i-n;j<i;j++)v=Math.max(v,bars[j][key]);return v}
+function minPrev(bars,i,n,key){let v=Infinity;for(let j=i-n;j<i;j++)v=Math.min(v,bars[j][key]);return v}
+function median(xs){const a=[...xs].sort((a,b)=>a-b),m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2}
+
+async function fetchBars(symbol,days,progressBase,progressSpan){
+  const target=days*24*12+100;
+  let end=Date.now(),all=[],loops=Math.ceil(target/1000);
+  for(let n=0;n<loops;n++){
+    const q=new URLSearchParams({category:'linear',symbol,interval:'5',limit:'1000',end:String(end)});
+    const r=await fetch(`${API}?${q}`); if(!r.ok)throw new Error(`${symbol} HTTP ${r.status}`);
+    const j=await r.json(); if(j.retCode!==0)throw new Error(`${symbol} ${j.retMsg}`);
+    const rows=j.result.list;
+    if(!rows.length)break;
+    all.push(...rows);
+    const oldest=Math.min(...rows.map(x=>Number(x[0])));
+    end=oldest-1;
+    bar.style.width=`${progressBase+progressSpan*((n+1)/loops)}%`;
+    await new Promise(r=>setTimeout(r,35));
+  }
+  const map=new Map();
+  for(const r of all)map.set(Number(r[0]),{t:Number(r[0]),o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]});
+  const arr=[...map.values()].sort((a,b)=>a.t-b.t);
+  const cutoff=Date.now()-days*86400000;
+  return arr.filter(x=>x.t>=cutoff);
+}
+
+function prepare(bars){
+  const closes=bars.map(b=>b.c);
+  const e20=ema(closes,20),e50=ema(closes,50);
+  let cumPV=0,cumV=0,cumP2V=0,lastDay='';
+  for(let i=0;i<bars.length;i++){
+    const d=new Date(bars[i].t).toISOString().slice(0,10);
+    if(d!==lastDay){lastDay=d;cumPV=0;cumV=0;cumP2V=0}
+    const typical=(bars[i].h+bars[i].l+bars[i].c)/3;
+    cumPV+=typical*bars[i].v;cumP2V+=typical*typical*bars[i].v;cumV+=bars[i].v;
+    const vw=cumV?cumPV/cumV:typical;
+    const variance=cumV?Math.max(0,cumP2V/cumV-vw*vw):0;
+    bars[i].ema20=e20[i];bars[i].ema50=e50[i];bars[i].vwap=vw;bars[i].vwapStd=Math.sqrt(variance);
+  }
+}
+
+function signalsA(bars){
+  const s=[];
+  for(let i=55;i<bars.length-1;i++){
+    const b=bars[i],prev=bars[i-1];
+    if(b.ema20>b.ema50 && b.ema20>prev.ema20 && b.l<=b.ema20 && b.c>b.ema20 && b.c>b.o){
+      const sl=Math.min(b.l,bars[i-1].l,bars[i-2].l);
+      if(sl<b.c)s.push({i,dir:1,sl,limitPrice:b.ema20});
+    }
+    if(b.ema20<b.ema50 && b.ema20<prev.ema20 && b.h>=b.ema20 && b.c<b.ema20 && b.c<b.o){
+      const sl=Math.max(b.h,bars[i-1].h,bars[i-2].h);
+      if(sl>b.c)s.push({i,dir:-1,sl,limitPrice:b.ema20});
+    }
+  } return s;
+}
+
+function signalsB(bars){
+  const s=[]; let pending=null;
+  for(let i=25;i<bars.length-1;i++){
+    if(pending && i>pending.expire)pending=null;
+
+    if(pending){
+      const b=bars[i],lv=pending.level,band=0.0012;
+      if(pending.dir===1 && b.l<=lv*(1+band) && b.c>lv && b.c>b.o){
+        s.push({i,dir:1,sl:b.l,rangeWidth:pending.rangeWidth,level:lv,limitPrice:lv});pending=null;continue;
+      }
+      if(pending.dir===-1 && b.h>=lv*(1-band) && b.c<lv && b.c<b.o){
+        s.push({i,dir:-1,sl:b.h,rangeWidth:pending.rangeWidth,level:lv,limitPrice:lv});pending=null;continue;
+      }
+    }
+
+    const rh=maxPrev(bars,i,20,'h'),rl=minPrev(bars,i,20,'l');
+    const bodies=[];for(let j=i-20;j<i;j++)bodies.push(Math.abs(bars[j].c-bars[j].o));
+    const med=median(bodies),body=Math.abs(bars[i].c-bars[i].o);
+    if(bars[i].c>rh && body>=1.2*med)pending={dir:1,level:rh,rangeLow:rl,rangeHigh:rh,rangeWidth:rh-rl,expire:i+6};
+    else if(bars[i].c<rl && body>=1.2*med)pending={dir:-1,level:rl,rangeLow:rl,rangeHigh:rh,rangeWidth:rh-rl,expire:i+6};
+  }return s;
+}
+
+function signalsC(bars){
+  const s=[];
+  for(let i=25;i<bars.length-1;i++){
+    const rh=maxPrev(bars,i,20,'h'),rl=minPrev(bars,i,20,'l'),b=bars[i];
+    if(b.l<rl && b.c>rl && b.c>b.o)s.push({i,dir:1,sl:b.l,rangeLow:rl,rangeHigh:rh,rangeMid:(rh+rl)/2,limitPrice:rl});
+    if(b.h>rh && b.c<rh && b.c<b.o)s.push({i,dir:-1,sl:b.h,rangeLow:rl,rangeHigh:rh,rangeMid:(rh+rl)/2,limitPrice:rh});
+  }return s;
+}
+
+function signalsD(bars){
+  const s=[];
+  for(let i=3;i<bars.length-1;i++){
+    const b=bars[i],p=bars[i-1];
+    if(b.c>b.vwap && b.vwap>p.vwap && b.l<=b.vwap && b.c>b.o){
+      const sl=Math.min(b.l,p.l);
+      if(sl<b.c)s.push({i,dir:1,sl,vwapTarget:b.vwap+b.vwapStd,limitPrice:b.vwap});
+    }
+    if(b.c<b.vwap && b.vwap<p.vwap && b.h>=b.vwap && b.c<b.o){
+      const sl=Math.max(b.h,p.h);
+      if(sl>b.c)s.push({i,dir:-1,sl,vwapTarget:b.vwap-b.vwapStd,limitPrice:b.vwap});
+    }
+  }return s;
+}
+
+function backtest(bars,signals,strategy,mode,riskPct,fees,limitBars){
+  let eq=100,peak=100,mdd=0,trades=[],nextAllowed=0,lossStreak=0,maxLossStreak=0;
+  let filled=0;
+  const byIndex=new Map();for(const x of signals){if(!byIndex.has(x.i))byIndex.set(x.i,x)}
+
+  for(let i=1;i<bars.length-1;i++){
+    if(i<nextAllowed)continue;
+    const sig=byIndex.get(i);if(!sig)continue;
+
+    let entryIdx=i+1, entry=null;
+
+    if(mode==='MARKET'){
+      entry=bars[entryIdx].o;
+    }else{
+      const lp=sig.limitPrice;
+      if(!Number.isFinite(lp))continue;
+      let found=-1;
+      for(let j=i+1;j<=Math.min(i+limitBars,bars.length-1);j++){
+        const b=bars[j];
+        if(b.l<=lp && b.h>=lp){found=j;break}
+      }
+      if(found<0)continue; // unfilled
+      entryIdx=found;entry=lp;
+    }
+    filled++;
+
+    const dir=sig.dir,sl=sig.sl;
+    const risk=Math.abs(entry-sl);
+    if(!isFinite(risk)||risk<=0)continue;
+    const riskFrac=risk/entry;
+    if(riskFrac<0.00035||riskFrac>0.02)continue;
+
+    let exit=null,outcome='TIME',hold=0,grossR=0;
+    const maxBars=strategy==='C'?18:24;
+    const maxJ=Math.min(bars.length-1,entryIdx+maxBars);
+
+    let target=null,target1=null,target2=null;
+    if(strategy==='B' && sig.rangeWidth>0){
+      target=dir===1?entry+0.5*sig.rangeWidth:entry-0.5*sig.rangeWidth;
+    }
+    if(strategy==='C'){
+      target1=sig.rangeMid;
+      target2=dir===1?sig.rangeHigh:sig.rangeLow;
+    }
+    if(strategy==='D' && Number.isFinite(sig.vwapTarget)){
+      target=sig.vwapTarget;
+      if((dir===1&&target<=entry)||(dir===-1&&target>=entry))target=null;
+    }
+
+    let halfTaken=false,halfGrossR=0;
+
+    for(let j=entryIdx;j<=maxJ;j++){
+      hold=j-entryIdx+1;
+      const b=bars[j];
+      const hitSL=dir===1?b.l<=sl:b.h>=sl;
+
+      if(hitSL){
+        const r=-1;
+        grossR=halfTaken?halfGrossR+0.5*r:r;
+        exit=sl;outcome='SL';nextAllowed=j+1;break;
+      }
+
+      if(strategy==='A'){
+        const fail=dir===1?b.c<b.ema20:b.c>b.ema20;
+        if(fail&&j>entryIdx){
+          exit=b.c;grossR=dir===1?(exit-entry)/risk:(entry-exit)/risk;
+          outcome='EMA_EXIT';nextAllowed=j+1;break;
+        }
+      }
+
+      if(strategy==='B' && target!=null){
+        const hit=dir===1?b.h>=target:b.l<=target;
+        if(hit){
+          exit=target;grossR=dir===1?(exit-entry)/risk:(entry-exit)/risk;
+          outcome='RANGE_EXTENSION';nextAllowed=j+1;break;
+        }
+      }
+
+      if(strategy==='C'){
+        if(!halfTaken&&target1!=null){
+          const hit1=dir===1?b.h>=target1:b.l<=target1;
+          if(hit1){
+            const r1=dir===1?(target1-entry)/risk:(entry-target1)/risk;
+            halfGrossR=0.5*r1;halfTaken=true;
+          }
+        }
+        if(halfTaken&&target2!=null){
+          const hit2=dir===1?b.h>=target2:b.l<=target2;
+          if(hit2){
+            const r2=dir===1?(target2-entry)/risk:(entry-target2)/risk;
+            grossR=halfGrossR+0.5*r2;
+            exit=target2;outcome='RANGE_TARGETS';nextAllowed=j+1;break;
+          }
+        }
+      }
+
+      if(strategy==='D'&&target!=null){
+        const hit=dir===1?b.h>=target:b.l<=target;
+        if(hit){
+          exit=target;grossR=dir===1?(exit-entry)/risk:(entry-exit)/risk;
+          outcome='VWAP_BAND';nextAllowed=j+1;break;
+        }
+      }
+
+      if(j===maxJ){
+        exit=b.c;
+        const remR=dir===1?(exit-entry)/risk:(entry-exit)/risk;
+        grossR=halfTaken?halfGrossR+0.5*remR:remR;
+        outcome='TIME';nextAllowed=j+1;
+      }
+    }
+    if(exit==null)continue;
+
+    const posFrac=(riskPct/100)/riskFrac;
+
+    // Entry cost differs by mode. Exit is modeled as taker.
+    const entryFee=mode==='MARKET'?fees.taker:fees.maker;
+    const entrySlip=mode==='MARKET'?fees.slip:0;
+    const exitFee=fees.taker;
+    const exitSlip=fees.slip;
+    const totalCostPct=entryFee+entrySlip+exitFee+exitSlip;
+
+    const costEquityFrac=posFrac*(totalCostPct/100);
+    const netR=grossR-costEquityFrac/(riskPct/100);
+    const retPct=netR*riskPct;
+
+    eq*=1+retPct/100;
+    peak=Math.max(peak,eq);mdd=Math.max(mdd,(peak-eq)/peak*100);
+
+    if(netR<0){lossStreak++;maxLossStreak=Math.max(maxLossStreak,lossStreak)}else lossStreak=0;
+    trades.push({netR,grossR,retPct,hold,outcome});
+  }
+
+  const wins=trades.filter(t=>t.netR>0),losses=trades.filter(t=>t.netR<=0);
+  const grossWin=wins.reduce((s,t)=>s+t.netR,0),grossLoss=Math.abs(losses.reduce((s,t)=>s+t.netR,0));
+  return{
+    signals:signals.length,
+    filled:trades.length,
+    fillRate:signals.length?trades.length/signals.length*100:0,
+    trades:trades.length,
+    winRate:trades.length?wins.length/trades.length*100:0,
+    expectancy:trades.length?trades.reduce((s,t)=>s+t.netR,0)/trades.length:0,
+    pf:grossLoss?grossWin/grossLoss:(grossWin?99:0),
+    net:eq-100,mdd,
+    avgHold:trades.length?trades.reduce((s,t)=>s+t.hold,0)/trades.length*5:0,
+    maxLossStreak
+  };
+}
+
+function fmt(x,n=2){return Number.isFinite(x)?x.toFixed(n):'—'}
+function cls(x){return x>0?'good':x<0?'bad':''}
+
+async function run(){
+  runBtn.disabled=true;bar.style.width='0%';logEl.textContent='LOG';
+  const days=+document.getElementById('days').value;
+  const riskPct=+document.getElementById('riskPct').value;
+  const taker=+document.getElementById('takerFee').value;
+  const maker=+document.getElementById('makerFee').value;
+  const slip=+document.getElementById('marketSlip').value;
+  const limitBars=+document.getElementById('limitBars').value;
+  const fees={taker,maker,slip};
+  statusEl.innerHTML=`<strong>실행 중.</strong> ${days}일 5분봉 다운로드 → 4개 전략 계산…`;
+
+  try{
+    const all={};
+    for(let s=0;s<SYMBOLS.length;s++){
+      const sym=SYMBOLS[s];log(`${sym} 다운로드 시작`);
+      const bars=await fetchBars(sym,days,s*45,45);
+      prepare(bars);all[sym]=bars;log(`${sym}: ${bars.length.toLocaleString()}봉`);
+    }
+    bar.style.width='92%';
+
+    const detail=[],combined={};
+    for(const k of ['A','B','C','D'])for(const mode of ['MARKET','LIMIT'])combined[`${k}_${mode}`]=[];
+    for(const sym of SYMBOLS){
+      const bars=all[sym];
+      const sigs={A:signalsA(bars),B:signalsB(bars),C:signalsC(bars),D:signalsD(bars)};
+      for(const k of Object.keys(sigs)){
+        for(const mode of ['MARKET','LIMIT']){
+          const r=backtest(bars,sigs[k],k,mode,riskPct,fees,limitBars);
+          detail.push({k,mode,sym,...r});
+          combined[`${k}_${mode}`].push(r);
+          log(`${k}/${sym}/${mode}: ${r.trades} fills, ${r.fillRate.toFixed(1)}% fill, Exp ${r.expectancy.toFixed(3)}R`);
+        }
+      }
+    }
+
+    const summaries=[];
+    for(const k of ['A','B','C','D']){
+      for(const mode of ['MARKET','LIMIT']){
+        const rs=combined[`${k}_${mode}`];
+        const tot=rs.reduce((s,x)=>s+x.trades,0);
+        const sigTot=rs.reduce((s,x)=>s+x.signals,0);
+        const wavg=key=>tot?rs.reduce((s,x)=>s+x[key]*x.trades,0)/tot:0;
+        summaries.push({
+          k,mode,
+          signals:sigTot,
+          trades:tot,
+          fillRate:sigTot?tot/sigTot*100:0,
+          winRate:wavg('winRate'),
+          expectancy:wavg('expectancy'),
+          pf:wavg('pf'),
+          net:rs.reduce((s,x)=>s+x.net,0)/rs.length,
+          mdd:Math.max(...rs.map(x=>x.mdd)),
+          avgHold:wavg('avgHold')
+        });
+      }
+    }
+
+    const eligible=summaries.filter(x=>x.trades>=50 && x.expectancy>0 && x.pf>1);
+    const winner=(eligible.length?eligible:summaries).sort((a,b)=>b.expectancy-a.expectancy)[0];
+
+    document.getElementById('summaryBody').innerHTML=summaries.map(x=>`
+      <tr class="${x.k===winner.k&&x.mode===winner.mode?'winner':''}">
+        <td>${x.k} · ${NAMES[x.k]} · ${x.mode==='MARKET'?'시장가':'지정가'}${x.k===winner.k&&x.mode===winner.mode?' ★':''}</td>
+        <td>${x.signals}</td><td>${x.trades}</td><td>${fmt(x.fillRate)}%</td>
+        <td>${fmt(x.winRate)}%</td>
+        <td class="${cls(x.expectancy)}">${fmt(x.expectancy,3)}R</td>
+        <td class="${cls(x.pf-1)}">${fmt(x.pf)}</td>
+        <td class="${cls(x.net)}">${fmt(x.net)}%</td>
+        <td>${fmt(x.mdd)}%</td><td>${fmt(x.avgHold)}분</td>
+      </tr>`).join('');
+
+    document.getElementById('detailBody').innerHTML=detail.map(x=>`
+      <tr><td>${x.k} · ${x.sym} · ${x.mode==='MARKET'?'시장가':'지정가'}</td>
+      <td>${x.signals}</td><td>${x.trades}</td><td>${fmt(x.fillRate)}%</td><td>${fmt(x.winRate)}%</td>
+      <td class="${cls(x.expectancy)}">${fmt(x.expectancy,3)}R</td><td>${fmt(x.pf)}</td>
+      <td class="${cls(x.net)}">${fmt(x.net)}%</td><td>${fmt(x.mdd)}%</td><td>${x.maxLossStreak}</td></tr>`).join('');
+
+    statusEl.innerHTML=`<strong>완료.</strong> 전략별 동적 청산 기준 기대값 1위: <b>${winner.k} · ${NAMES[winner.k]} · ${winner.mode==='MARKET'?'시장가':'지정가'}</b> / ${fmt(winner.expectancy,3)}R per trade. 다음 단계는 이 전략을 별도 기간에서 재검증하는 것입니다.`;
+    bar.style.width='100%';
+  }catch(e){
+    console.error(e);statusEl.innerHTML=`<strong style="color:#ff657b">실패:</strong> ${e.message}`;log(`ERROR ${e.message}`);
+  }finally{runBtn.disabled=false}
+}
+runBtn.addEventListener('click',run);
+</script>
+</body>
+</html>
