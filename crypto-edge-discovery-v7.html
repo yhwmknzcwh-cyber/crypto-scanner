@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Crypto 5M Edge Discovery V7</title>
+<style>
+:root{color-scheme:dark;--bg:#090d13;--p:#111823;--p2:#0d131c;--b:#263446;--t:#edf3f9;--m:#8d9caf;--g:#28d6a3;--r:#ff687d;--a:#78aaff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:14px 16px;background:#0c121a;border-bottom:1px solid var(--b)}h1{font-size:17px;margin:0}header p{font-size:10px;color:var(--m);margin:4px 0 0}
+main{padding:12px;display:grid;gap:12px}.card{background:var(--p);border:1px solid var(--b);border-radius:11px;padding:12px}
+.controls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.ctl{display:flex;flex-direction:column;gap:4px}.ctl span{font-size:9px;color:var(--m)}
+select,input,button{width:100%;background:#151e2a;border:1px solid var(--b);color:var(--t);border-radius:7px;min-height:38px;padding:0 8px}
+button{font-weight:700}.primary{background:#244e7d;border-color:#4a80ba}.primary:disabled{opacity:.45}
+.status{font-size:11px;color:var(--m);line-height:1.6}.status strong{color:var(--t)}.progress{height:6px;background:#171f2a;border-radius:99px;overflow:hidden;margin-top:7px}.progress div{height:100%;width:0;background:var(--a)}
+.tablewrap{overflow:auto;-webkit-overflow-scrolling:touch}table{width:100%;border-collapse:collapse;min-width:1100px;font-size:10px}th,td{padding:8px 6px;border-bottom:1px solid #1e2a38;text-align:right}th:first-child,td:first-child{text-align:left}th{font-size:9px;color:#9eacbd}.good{color:var(--g)}.bad{color:var(--r)}.pass{background:#12231f}.fail{opacity:.7}
+.note{font-size:10px;line-height:1.65;color:var(--m)}.log{font:9px ui-monospace,monospace;white-space:pre-wrap;max-height:150px;overflow:auto;background:#080c12;padding:8px;border-radius:7px;color:#91a1b4}
+@media(max-width:850px){.controls{grid-template-columns:1fr 1fr}}
+</style>
+</head><body>
+<header><h1>Crypto 5M Edge Discovery Engine V7</h1><p>전략을 먼저 정하지 않고 시장 상태 → 미래 결과를 역으로 탐색 · iPad Safari</p></header>
+<main>
+<section class="card"><div class="controls">
+<label class="ctl"><span>탐색 기간</span><select id="days"><option value="90">90일</option><option value="180" selected>180일</option><option value="365">365일</option></select></label>
+<label class="ctl"><span>최소 Final 승률</span><input id="minWin" value="55" type="number"></label>
+<label class="ctl"><span>최소 Final 거래수</span><input id="minN" value="80" type="number"></label>
+<label class="ctl"><span>최소 평균 거래/일</span><input id="minFreq" value="3" type="number" step=".5"></label>
+<label class="ctl"><span>Taker % / side</span><input id="taker" value=".055" type="number" step=".005"></label>
+<label class="ctl"><span>Slippage % / side</span><input id="slip" value=".015" type="number" step=".005"></label>
+<label class="ctl"><span>후보 최대 조건수</span><select id="depth"><option value="2">2</option><option value="3" selected>3</option></select></label>
+<button class="primary" id="run">Edge 탐색 시작</button>
+</div></section>
+
+<section class="card"><div id="status" class="status"><strong>준비.</strong> BTC/ETH 5분봉을 내려받아 Discovery 60% → Validation 20% → Final 20% 순으로 검사합니다.</div><div class="progress"><div id="bar"></div></div></section>
+
+<section class="card note">
+<b>V7 탐색 방식</b><br>
+각 5분봉마다 당시 알 수 있었던 시장 상태를 분류합니다: 최근 15/30분 모멘텀, EMA9/21 위치, 거래량 regime, 변동성 regime, 몸통/윅, 최근 12봉 range 위치, 15분·1시간 방향, UTC 시간대.
+각 상태에서 LONG/SHORT을 가정하고 TP/SL/보유시간 조합의 미래 결과를 계산합니다. Discovery에서 조건 조합을 찾고 Validation에서 살아남은 것만 Final에 한 번 적용합니다.
+<b>Final은 후보 탐색·튜닝에 사용하지 않습니다.</b>
+</section>
+
+<section class="card"><h2 style="font-size:13px;margin:0 0 9px">Final Test 통과 Edge</h2>
+<div class="tablewrap"><table><thead><tr><th>후보</th><th>방향</th><th>TP/SL/시간</th><th>조건</th><th>Disc 승률</th><th>Val 승률</th><th>Final 거래</th><th>Final 승률</th><th>Gross Exp</th><th>Cost</th><th>Net Exp</th><th>PF</th><th>거래/일</th><th>판정</th></tr></thead><tbody id="body"><tr><td colspan="14" style="text-align:center;color:#718096">아직 실행하지 않았습니다.</td></tr></tbody></table></div></section>
+
+<section class="card"><h2 style="font-size:13px;margin:0 0 9px">탈락 포함 상위 후보</h2>
+<div class="tablewrap"><table><thead><tr><th>후보</th><th>방향</th><th>TP/SL</th><th>조건</th><th>Validation N</th><th>Val 승률</th><th>Val Net</th><th>Final N</th><th>Final 승률</th><th>Final Net</th><th>PF</th><th>빈도</th></tr></thead><tbody id="allBody"></tbody></table></div></section>
+<section class="card"><div id="log" class="log">LOG</div></section>
+</main>
+<script>
+const API='https://api.bybit.com/v5/market/kline', SYMS=['BTCUSDT','ETHUSDT'];
+const $=x=>document.getElementById(x), body=$('body'),allBody=$('allBody'),statusEl=$('status'),bar=$('bar'),logEl=$('log'),btn=$('run');
+function log(x){logEl.textContent+='\n'+x;logEl.scrollTop=logEl.scrollHeight}
+function ema(a,n){let k=2/(n+1),o=[],x=a[0];o[0]=x;for(let i=1;i<a.length;i++){x=a[i]*k+x*(1-k);o[i]=x}return o}
+function med(a){let b=a.filter(Number.isFinite).sort((x,y)=>x-y);if(!b.length)return NaN;let m=Math.floor(b.length/2);return b.length%2?b[m]:(b[m-1]+b[m])/2}
+async function fetchBars(sym,days,base,span){
+ let target=days*288+350,end=Date.now(),all=[],loops=Math.ceil(target/1000);
+ for(let n=0;n<loops;n++){let q=new URLSearchParams({category:'linear',symbol:sym,interval:'5',limit:'1000',end:String(end)}),r=await fetch(API+'?'+q),j=await r.json();if(j.retCode!==0)throw Error(j.retMsg);let z=j.result.list;if(!z.length)break;all.push(...z);end=Math.min(...z.map(x=>+x[0]))-1;bar.style.width=(base+span*(n+1)/loops)+'%';await new Promise(r=>setTimeout(r,20))}
+ let m=new Map;for(let x of all)m.set(+x[0],{t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]});let cut=Date.now()-days*864e5;return [...m.values()].sort((a,b)=>a.t-b.t).filter(x=>x.t>=cut)
+}
+function features(b){
+ let c=b.map(x=>x.c),e9=ema(c,9),e21=ema(c,21),e15f=ema(c,27),e15s=ema(c,63),e1f=ema(c,72),e1s=ema(c,240),out=[];
+ for(let i=250;i<b.length-12;i++){
+  let x=b[i],ret3=x.c/b[i-3].c-1,ret6=x.c/b[i-6].c-1,rets=[];for(let j=i-48;j<i;j++)rets.push(Math.abs(b[j].c/b[j-1].c-1));let vol=med(rets),vr=x.v/med(b.slice(i-48,i).map(z=>z.v)),rg=x.h-x.l,body=Math.abs(x.c-x.o)/(rg||1),upper=(x.h-Math.max(x.o,x.c))/(rg||1),lower=(Math.min(x.o,x.c)-x.l)/(rg||1),hi=Math.max(...b.slice(i-12,i).map(z=>z.h)),lo=Math.min(...b.slice(i-12,i).map(z=>z.l)),rp=(x.c-lo)/((hi-lo)||1),hour=new Date(x.t).getUTCHours();
+  let f=[];
+  f.push(ret3>.001?'M15_UP':ret3<-.001?'M15_DN':'M15_FLAT');
+  f.push(ret6>.0015?'M30_UP':ret6<-.0015?'M30_DN':'M30_FLAT');
+  f.push(e9[i]>e21[i]?'EMA_UP':'EMA_DN');
+  f.push(e15f[i]>e15s[i]?'TF15_UP':'TF15_DN');
+  f.push(e1f[i]>e1s[i]?'TF1H_UP':'TF1H_DN');
+  f.push(vr>=1.5?'VOL_HI':vr<=.7?'VOL_LO':'VOL_MID');
+  let curAbs=Math.abs(x.c/b[i-1].c-1);f.push(curAbs>=2*vol?'ATR_HI':curAbs<=.6*vol?'ATR_LO':'ATR_MID');
+  f.push(body>=.65?'BODY_HI':body<=.3?'BODY_LO':'BODY_MID');
+  f.push(upper>=.45?'UWICK_HI':lower>=.45?'LWICK_HI':'WICK_NORMAL');
+  f.push(rp>=.8?'RANGE_TOP':rp<=.2?'RANGE_BOT':'RANGE_MID');
+  f.push(hour<8?'SESSION_ASIA':hour<16?'SESSION_EU':'SESSION_US');
+  out.push({i,f});
+ }return out
+}
+function outcome(b,i,side,tp,sl,hold,cost){
+ let entry=b[i+1].o,T=side===1?entry*(1+tp):entry*(1-tp),S=side===1?entry*(1-sl):entry*(1+sl),exit=b[Math.min(i+hold,b.length-1)].c;
+ for(let j=i+1;j<=Math.min(i+hold,b.length-1);j++){let hs=side===1?b[j].l<=S:b[j].h>=S,ht=side===1?b[j].h>=T:b[j].l<=T;if(hs){exit=S;break}if(ht){exit=T;break}}
+ let gross=side*(exit-entry)/entry,net=gross-cost;return {win:net>0,gross,net}
+}
+function keyset(f,depth){
+ let r=[];for(let a=0;a<f.length;a++){r.push([f[a]]);if(depth>=2)for(let b=a+1;b<f.length;b++){r.push([f[a],f[b]]);if(depth>=3)for(let c=b+1;c<f.length;c++)r.push([f[a],f[b],f[c]])}}return r
+}
+function stats(rows){let n=rows.length,w=rows.filter(x=>x.win).length,gw=rows.filter(x=>x.net>0).reduce((s,x)=>s+x.net,0),gl=Math.abs(rows.filter(x=>x.net<=0).reduce((s,x)=>s+x.net,0));return {n,win:n?w/n*100:0,g:n?rows.reduce((s,x)=>s+x.gross,0)/n*100:0,net:n?rows.reduce((s,x)=>s+x.net,0)/n*100:0,pf:gl?gw/gl:(gw?99:0)}}
+function evaluateSegment(b,fs,cond,side,p,from,to,cost){
+ let rows=[];for(let z of fs){if(z.i<from||z.i>=to)continue;if(cond.every(q=>z.f.includes(q)))rows.push(outcome(b,z.i,side,p.tp,p.sl,p.hold,cost))}return stats(rows)
+}
+async function run(){
+ btn.disabled=true;body.innerHTML='';allBody.innerHTML='';logEl.textContent='LOG';bar.style.width='0%';
+ let days=+$('days').value,minWin=+$('minWin').value,minN=+$('minN').value,minFreq=+$('minFreq').value,depth=+$('depth').value,cost=2*(+$('taker').value/100 + +$('slip').value/100);
+ try{
+  let candidates=[];
+  for(let si=0;si<SYMS.length;si++){
+   let sym=SYMS[si];statusEl.innerHTML=`<strong>${sym}</strong> ${days}일 5분봉 수집 중…`;let b=await fetchBars(sym,days,si*35,35),fs=features(b);log(`${sym}: ${b.length} bars / feature rows ${fs.length}`);
+   let d1=Math.floor(b.length*.60),d2=Math.floor(b.length*.80),params=[];for(let tp of [.0015,.002,.0025,.003,.004])for(let sl of [.002,.003,.004,.005,.006])for(let hold of [3,6,12])params.push({tp,sl,hold});
+   let map=new Map;
+   // Discovery: count condition outcomes. Only combinations that occur often are retained.
+   for(let p of params)for(let side of [1,-1]){
+    let single=new Map;
+    for(let z of fs){if(z.i>=d1)continue;let o=outcome(b,z.i,side,p.tp,p.sl,p.hold,cost);for(let cond of keyset(z.f,depth)){let k=cond.join('&');if(!single.has(k))single.set(k,[]);single.get(k).push(o)}}
+    let prelim=[];
+    for(let [k,rows] of single){if(rows.length<Math.max(120,days*.8))continue;let s=stats(rows);if(s.win>=53&&s.net>0)prelim.push({cond:k.split('&'),disc:s,p,side})}
+    prelim.sort((a,b)=>(b.disc.net*10+b.disc.win*.01)-(a.disc.net*10+a.disc.win*.01));prelim=prelim.slice(0,30);
+    for(let q of prelim){let val=evaluateSegment(b,fs,q.cond,side,p,d1,d2,cost);if(val.n>=30&&val.win>=52&&val.net>0){let id=[side,p.tp,p.sl,p.hold,q.cond.join('&')].join('|'),old=map.get(id);if(!old||val.net>old.val.net)map.set(id,{sym,...q,val})}}
+   }
+   candidates.push(...map.values());log(`${sym}: validation survivors ${map.size}`);bar.style.width=(75+si*7)+'%';
+  }
+  // Final is evaluated only now, after Discovery+Validation survivors have been frozen.
+  let finals=[];
+  for(let q of candidates){let b=await fetchBars(q.sym,days,90,2),fs=features(b),d2=Math.floor(b.length*.80),fin=evaluateSegment(b,fs,q.cond,q.side,q.p,d2,b.length,cost),finalDays=days*.20,freq=fin.n/finalDays,pass=fin.n>=minN&&fin.win>=minWin&&fin.net>0&&fin.pf>1&&freq>=minFreq;finals.push({...q,fin,freq,pass})}
+  finals.sort((a,b)=>(b.pass?1:0)-(a.pass?1:0)||(b.fin.net-a.fin.net)||(b.fin.win-a.fin.win));
+  let top=finals.slice(0,100),passes=finals.filter(x=>x.pass);
+  function row(x,i,full){return `<tr class="${x.pass?'pass':'fail'}"><td>${x.sym} #${i+1}</td><td>${x.side===1?'LONG':'SHORT'}</td><td>TP ${(x.p.tp*100).toFixed(2)} / SL ${(x.p.sl*100).toFixed(2)} / ${x.p.hold*5}m</td><td>${x.cond.join(' + ')}</td>${full?`<td>${x.disc.win.toFixed(1)}%</td><td>${x.val.win.toFixed(1)}%</td>`:''}<td>${x.fin.n}</td><td class="${x.fin.win>=minWin?'good':'bad'}">${x.fin.win.toFixed(1)}%</td>${full?`<td>${x.fin.g.toFixed(3)}%</td><td>${(cost*100).toFixed(3)}%</td>`:''}<td class="${x.fin.net>0?'good':'bad'}">${x.fin.net.toFixed(3)}%</td><td>${x.fin.pf.toFixed(2)}</td><td>${x.freq.toFixed(1)}</td>${full?`<td class="${x.pass?'good':'bad'}">${x.pass?'PASS':'FAIL'}</td>`:''}</tr>`}
+  body.innerHTML=passes.length?passes.slice(0,50).map((x,i)=>row(x,i,true)).join(''):`<tr><td colspan="14" class="bad" style="text-align:center">Final 하드 게이트 통과 Edge 없음</td></tr>`;
+  allBody.innerHTML=top.map((x,i)=>`<tr class="${x.pass?'pass':'fail'}"><td>${x.sym} #${i+1}</td><td>${x.side===1?'LONG':'SHORT'}</td><td>${(x.p.tp*100).toFixed(2)}/${(x.p.sl*100).toFixed(2)}%</td><td>${x.cond.join(' + ')}</td><td>${x.val.n}</td><td>${x.val.win.toFixed(1)}%</td><td>${x.val.net.toFixed(3)}%</td><td>${x.fin.n}</td><td>${x.fin.win.toFixed(1)}%</td><td>${x.fin.net.toFixed(3)}%</td><td>${x.fin.pf.toFixed(2)}</td><td>${x.freq.toFixed(1)}/d</td></tr>`).join('');
+  statusEl.innerHTML=passes.length?`<strong>Final PASS ${passes.length}개.</strong> 승률 ≥ ${minWin}%, 비용 후 기대값 > 0, PF > 1, ≥ ${minFreq}회/일, Final 거래 ≥ ${minN}을 모두 만족.`:`<strong style="color:#ff687d">Final PASS 0개.</strong> 기준을 낮추지 않습니다. 상위 탈락 후보에서 병목을 확인합니다.`;bar.style.width='100%';
+ }catch(e){console.error(e);statusEl.innerHTML=`<strong class="bad">오류:</strong> ${e.message}`;log('ERROR '+e.message)}
+ finally{btn.disabled=false}
+}
+btn.onclick=run;
+</script></body></html>
